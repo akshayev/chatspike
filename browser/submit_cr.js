@@ -51,6 +51,12 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
       await box.waitFor({ timeout: 20000 });
       await box.fill(item.url);
       await page.waitForTimeout(2500);   // lets the form validate the link
+      const early = await page.evaluate(() => document.body.innerText);
+      if (/already submitted to this campaign/i.test(early)) {
+        await shot(page, 1);
+        console.log(JSON.stringify({ ok: true, method, already: true, campaign: item.campaign_id, video: item.video_id }));
+        return;
+      }
     }
     await shot(page, 1);
 
@@ -62,6 +68,10 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
     await page.waitForTimeout(5000);
     await shot(page, 2);
     const bodyText = await page.evaluate(() => document.body.innerText);
+    if (/already submitted to this campaign/i.test(bodyText)) {
+      console.log(JSON.stringify({ ok: true, method, already: true, campaign: item.campaign_id, video: item.video_id }));
+      return;
+    }
     if (/error|invalid|already submitted|not allowed/i.test(bodyText.slice(0, 3000)) && /submit clip/i.test(bodyText)) {
       throw new Error('Content Rewards showed an error after submit; see shots/cr-' + item.id + '-2.png');
     }
