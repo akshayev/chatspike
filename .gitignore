@@ -1,0 +1,14 @@
+# runtime data (large / personal)
+rec/
+clips/
+queue/
+logs/
+shots/
+data/*.db*
+# environments & secrets
+.venv/
+node_modules/
+.env
+*.local.json
+__pycache__/
+*.pyc

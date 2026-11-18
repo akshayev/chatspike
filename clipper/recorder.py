@@ -1,0 +1,111 @@
+"""Records a live stream into a rolling buffer of short .ts segments named by
+wall-clock epoch, so any time window can be cut later without waiting for the
+stream to end. Old segments are deleted after `keep_minutes`."""
+import subprocess, threading, time, json, shutil
+from pathlib import Path
+from .common import log, ROOT
+
+L = log("rec")
+
+
+def stream_url(ch):
+    if ch["platform"] == "twitch":
+        return f"https://www.twitch.tv/{ch['source']}"
+    return ch["source"]
+
+
+def is_live(ch):
+    """Ask streamlink whether the channel has a playable stream right now."""
+    try:
+        out = subprocess.run(
+            ["streamlink", "--json", stream_url(ch)],
+            capture_output=True, text=True, timeout=60,
+        ).stdout
+        data = json.loads(out or "{}")
+        return bool(data.get("streams"))
+    except Exception as e:
+        L.warning("live check failed for %s: %s", ch["key"], e)
+        return False
+
+
+class Recorder:
+    def __init__(self, ch, cfg):
+        self.ch = ch
+        self.keep = cfg["storage"]["keep_minutes"] * 60
+        self.dir = ROOT / cfg["storage"]["rec_dir"] / ch["key"]
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.sl = self.ff = None
+        self.running = False
+
+    def start(self):
+        url = stream_url(self.ch)
+        sl_cmd = ["streamlink", "--stdout", "--retry-streams", "5", "--retry-open", "3",
+                  "--stream-segment-threads", "2"]
+        if self.ch["platform"] == "twitch":
+            sl_cmd += ["--twitch-disable-ads"]
+        sl_cmd += [url, "1080p60,1080p,936p60,720p60,720p,best"]
+        ff_cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
+                  "-c", "copy", "-map", "0:v:0", "-map", "0:a:0?",
+                  "-f", "segment", "-segment_time", "4", "-reset_timestamps", "1",
+                  "-strftime", "1", str(self.dir / "%s.ts")]
+        L.info("recording %s -> %s", url, self.dir)
+        self.sl = subprocess.Popen(sl_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        self.ff = subprocess.Popen(ff_cmd, stdin=self.sl.stdout)
+        self.sl.stdout.close()
+        self.running = True
+        threading.Thread(target=self._janitor, daemon=True).start()
+
+    def alive(self):
+        return self.running and self.ff and self.ff.poll() is None and self.sl.poll() is None
+
+    def stop(self):
+        self.running = False
+        for p in (self.sl, self.ff):
+            if p and p.poll() is None:
+                p.terminate()
+
+    def _janitor(self):
+        while self.running:
+            cutoff = time.time() - self.keep
+            for f in self.dir.glob("*.ts"):
+                try:
+                    if int(f.stem) < cutoff:
+                        f.unlink()
+                except (ValueError, FileNotFoundError):
+                    pass
+            time.sleep(30)
+
+    def segments(self, t0, t1):
+        """Segments overlapping wall-clock window [t0, t1], sorted."""
+        segs = []
+        for f in self.dir.glob("*.ts"):
+            try:
+                segs.append((int(f.stem), f))
+            except ValueError:
+                pass
+        segs.sort()
+        out = []
+        for i, (s, f) in enumerate(segs):
+            nxt = segs[i + 1][0] if i + 1 < len(segs) else s + 6
+            if nxt > t0 and s < t1:
+                out.append((s, f))
+        return out
+
+    def cut(self, t0, t1, dest):
+        """Write wall-clock window [t0,t1] to dest (mp4, stream copy where possible)."""
+        segs = self.segments(t0, t1)
+        if not segs:
+            raise RuntimeError("no segments for window (stream not buffered?)")
+        first = segs[0][0]
+        joined = Path(dest).with_suffix(".joined.ts")
+        with open(joined, "wb") as out:
+            for _, f in segs:
+                with open(f, "rb") as inp:
+                    shutil.copyfileobj(inp, out)
+        ss = max(0.0, t0 - first)
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                        "-ss", f"{ss:.2f}", "-i", str(joined), "-t", f"{t1 - t0:.2f}",
+                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                        "-c:a", "aac", "-b:a", "192k", str(dest)], check=True)
+        joined.unlink(missing_ok=True)
+        return dest

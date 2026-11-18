@@ -1,0 +1,90 @@
+{
+  "_note": "Edit channels here. enabled=false skips a channel. campaign_id = Content Rewards campaign.",
+  "channels": [
+    {
+      "key": "lacy",
+      "enabled": true,
+      "platform": "twitch",
+      "source": "lacy",
+      "name": "LACY",
+      "campaign_id": "a5c63fad-cd53-4b81-9305-4a2d1696872a",
+      "hashtags": ["#LACY", "#GTA6", "#GTAVI", "#shorts"],
+      "cta": "Watch LACY live on Twitch",
+      "min_msgs": 25
+    },
+    {
+      "key": "clix",
+      "enabled": true,
+      "platform": "twitch",
+      "source": "clix",
+      "name": "Clix",
+      "campaign_id": "985dc674-c75e-44fc-ac87-1b1506324389",
+      "hashtags": ["#Clix", "#GTA6", "#GTAVI", "#shorts"],
+      "cta": "Watch Clix live on Twitch",
+      "min_msgs": 25
+    },
+    {
+      "key": "bobby",
+      "enabled": true,
+      "platform": "twitch",
+      "source": "bobby_vanriper",
+      "name": "Bobby Vanriper",
+      "campaign_id": "f583b069-ced7-49e5-9ed3-2d3a13d6df0c",
+      "hashtags": ["#bobbyvanriper", "#GTA6", "#GTAVI", "#shorts"],
+      "cta": "Follow Bobby Vanriper on Twitch",
+      "min_msgs": 6
+    },
+    {
+      "key": "tomo",
+      "enabled": true,
+      "platform": "youtube",
+      "source": "https://www.youtube.com/@Tomovids/live",
+      "name": "Tomo",
+      "campaign_id": "df6de26f-86ec-4782-b818-1fc8053b99a4",
+      "hashtags": ["#tomovids", "#gta6", "#GTAVI", "#shorts"],
+      "cta": "Subscribe to Tomo on YouTube @Tomovids",
+      "min_msgs": 8
+    }
+  ],
+
+  "detect": {
+    "bucket_sec": 10,
+    "baseline_sec": 180,
+    "spike_ratio": 2.5,
+    "pre_sec": 22,
+    "post_sec": 8,
+    "cooldown_sec": 45,
+    "warmup_sec": 120
+  },
+
+  "edit": {
+    "layout": "blur",
+    "_layouts": "blur = full frame centered on blurred background (safe default); center = 9:16 center crop; stack = facecam box on top + gameplay below (set facecam per channel as facecam:[x,y,w,h] in 1920x1080 coords)",
+    "whisper_model": "small.en",
+    "whisper_device": "auto",
+    "font": "Anton",
+    "caption_words_per_chunk": 3
+  },
+
+  "publish": {
+    "auto_upload": true,
+    "auto_submit": true,
+    "min_score": 55,
+    "min_gap_minutes": 12,
+    "max_per_hour": 4,
+    "max_per_day": 30,
+    "visibility": "PUBLIC",
+    "cdp_url": "http://127.0.0.1:9222"
+  },
+
+  "storage": {
+    "keep_minutes": 12,
+    "rec_dir": "rec",
+    "clips_dir": "clips"
+  },
+
+  "llm": {
+    "_note": "Optional. If ANTHROPIC_API_KEY is set, Claude writes the hook title and scores virality. Otherwise templates + chat-based scoring are used.",
+    "model": "claude-haiku-5-5"
+  }
+}
