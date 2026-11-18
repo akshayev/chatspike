@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Compare capture methods for one Twitch channel. Prints media/wall ratio (1.00 = nothing dropped).
-# Usage: bash diag_capture.sh [channel] [seconds]   (stop the clipper first so the test is clean)
+# Usage: bash diag_capture.sh [channel] [seconds] [methods, e.g. A or ABC]   (stop the clipper first so the test is clean)
 cd "$(dirname "$0")"; . .venv/bin/activate
-CH=${1:-lacy}; SEC=${2:-60}; URL="https://www.twitch.tv/$CH"
+CH=${1:-lacy}; SEC=${2:-60}; ONLY=${3:-ABC}; URL="https://www.twitch.tv/$CH"
 ratio() {  # dir -> media seconds / wall seconds between first and last segment
   python3 - "$1" <<'EOF'
 import sys, glob, os, subprocess
@@ -16,19 +16,19 @@ EOF
 }
 SEG=(-c copy -map 0:v:0 -map "0:a:0?" -f segment -segment_time 4 -reset_timestamps 1 -strftime 1)
 
-echo "A) current: streamlink --stdout | ffmpeg segment"
-rm -rf /tmp/capA && mkdir -p /tmp/capA
-timeout $SEC bash -c "streamlink --stdout --loglevel warning '$URL' 1080p60,best | ffmpeg -hide_banner -loglevel error -i pipe:0 ${SEG[*]} /tmp/capA/%s.ts"
-ratio /tmp/capA
+[[ $ONLY == *A* ]] && { echo "[$CH] A) current: streamlink --stdout | ffmpeg segment"
+rm -rf /tmp/cap-$CH-A && mkdir -p /tmp/cap-$CH-A
+timeout $SEC bash -c "streamlink --stdout --loglevel warning '$URL' 1080p60,best | ffmpeg -hide_banner -loglevel error -i pipe:0 ${SEG[*]} /tmp/cap-$CH-A/%s.ts"
+ratio /tmp/cap-$CH-A; }
 
-echo "B) ffmpeg reads the HLS playlist directly"
-rm -rf /tmp/capB && mkdir -p /tmp/capB
+[[ $ONLY == *B* ]] && { echo "[$CH] B) ffmpeg reads the HLS playlist directly"
+rm -rf /tmp/cap-$CH-B && mkdir -p /tmp/cap-$CH-B
 M3U8=$(streamlink --stream-url "$URL" 1080p60,best)
-timeout $SEC ffmpeg -hide_banner -loglevel error -live_start_index -1 -i "$M3U8" "${SEG[@]}" /tmp/capB/%s.ts
-ratio /tmp/capB
+timeout $SEC ffmpeg -hide_banner -loglevel error -live_start_index -1 -i "$M3U8" "${SEG[@]}" /tmp/cap-$CH-B/%s.ts
+ratio /tmp/cap-$CH-B; }
 
-echo "C) streamlink with low-latency + 1 segment thread"
-rm -rf /tmp/capC && mkdir -p /tmp/capC
-timeout $SEC bash -c "streamlink --stdout --loglevel warning --twitch-low-latency --stream-segment-threads 1 '$URL' 1080p60,best | ffmpeg -hide_banner -loglevel error -i pipe:0 ${SEG[*]} /tmp/capC/%s.ts"
-ratio /tmp/capC
-rm -rf /tmp/capA /tmp/capB /tmp/capC
+[[ $ONLY == *C* ]] && { echo "[$CH] C) streamlink with low-latency + 1 segment thread"
+rm -rf /tmp/cap-$CH-C && mkdir -p /tmp/cap-$CH-C
+timeout $SEC bash -c "streamlink --stdout --loglevel warning --twitch-low-latency --stream-segment-threads 1 '$URL' 1080p60,best | ffmpeg -hide_banner -loglevel error -i pipe:0 ${SEG[*]} /tmp/cap-$CH-C/%s.ts"
+ratio /tmp/cap-$CH-C; }
+rm -rf /tmp/cap-$CH-A /tmp/cap-$CH-B /tmp/cap-$CH-C
