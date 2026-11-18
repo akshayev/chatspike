@@ -73,8 +73,32 @@ class Recorder:
             if p and p.poll() is None:
                 p.terminate()
 
+    def _media_len(self, f):
+        try:
+            out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                  "-of", "csv=p=0", str(f)], capture_output=True, text=True, timeout=10).stdout
+            return float(out.strip() or 0)
+        except Exception:
+            return 0.0
+
+    def health(self):
+        """Media seconds captured vs wall seconds over the last ~2 minutes (1.0 = nothing dropped)."""
+        segs = sorted((int(f.stem), f) for f in self.dir.glob("*.ts") if f.stem.isdigit())
+        segs = [s for s in segs if s[0] > time.time() - 130][:-1]   # skip the file still being written
+        if len(segs) < 5:
+            return None
+        wall = segs[-1][0] - segs[0][0]
+        media = sum(self._media_len(f) for _, f in segs[:-1])
+        return round(media / wall, 2) if wall > 0 else None
+
     def _janitor(self):
+        last_health = time.time()
         while self.running:
+            if time.time() - last_health > 120:
+                last_health = time.time()
+                h = self.health()
+                if h is not None:
+                    (L.warning if h < 0.9 else L.info)("[%s] capture health %.2f (media/wall, 1.00 = no drops)", self.ch["key"], h)
             cutoff = time.time() - self.keep
             for f in self.dir.glob("*.ts"):
                 try:
