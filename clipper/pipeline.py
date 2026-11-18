@@ -62,7 +62,9 @@ def render_worker(cfg, render_q):
                 start = min(6.0, words[0]["s"] - 0.4)
             meta = hook.make_meta(ch, ev, words, cfg)
             ass = d / f"{cid}.ass"
-            ass.write_text(captions.build_ass(words, meta["hook"], ch["cta"], dur - start, cfg, offset=start))
+            layout = ch.get("layout", cfg["edit"].get("layout", "blur"))
+            ass.write_text(captions.build_ass(words, meta["hook"], ch["cta"], dur - start, cfg,
+                                              offset=start, layout=layout))
             final = d / f"{cid}.mp4"
             editor.render(raw, ass, final, ch, cfg, start=start, duration=dur - start)
             raw.unlink(missing_ok=True)

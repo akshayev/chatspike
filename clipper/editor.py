@@ -20,8 +20,8 @@ def layout_filter(mode, ch):
     if mode == "stack" and ch.get("facecam"):
         x, y, w, h = ch["facecam"]
         return (f"[0:v]scale=1920:1080,split[a][b];"
-                f"[a]crop={w}:{h}:{x}:{y},scale=1080:700:force_original_aspect_ratio=increase,crop=1080:700[cam];"
-                f"[b]scale=-2:1220,crop=1080:1220[game];"
+                f"[a]crop={w}:{h}:{x}:{y},scale=1080:608:force_original_aspect_ratio=increase,crop=1080:608[cam];"
+                f"[b]scale=-2:1312,crop=1080:1312[game];"
                 f"[cam][game]vstack[v0]")
     # blur: full frame, slightly zoomed, over a blurred fill
     return ("[0:v]split[a][b];"

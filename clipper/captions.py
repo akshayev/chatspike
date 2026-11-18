@@ -95,9 +95,11 @@ def _wrap(text, max_chars=18):
     return "\\N".join(out[:3])
 
 
-def build_ass(words, hook, cta, duration, cfg, offset=0.0):
+def build_ass(words, hook, cta, duration, cfg, offset=0.0, layout="blur"):
     font = cfg["edit"].get("font", "Anton")
     per = cfg["edit"].get("caption_words_per_chunk", 3)
+    # vertical positions (MarginV) per layout: stack = cam on top 608 px
+    hook_v, cap_v, cta_v = (556, 430, 250) if layout == "stack" else (170, 520, 330)
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -106,9 +108,9 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,{font},124,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,1,0,1,8,3,2,50,50,520,1
-Style: Hook,{font},88,&H00FFFFFF,&H00FFFFFF,&H00000000,&HCC000000,0,0,0,0,100,100,1,0,3,18,0,8,70,70,170,1
-Style: CTA,{font},70,&H00000000,&H00000000,&H0000D7FF,&H0000D7FF,0,0,0,0,100,100,1,0,3,20,0,2,80,80,330,1
+Style: Cap,{font},124,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,1,0,1,8,3,2,50,50,{cap_v},1
+Style: Hook,{font},88,&H00FFFFFF,&H00FFFFFF,&H00000000,&HCC000000,0,0,0,0,100,100,1,0,3,18,0,8,70,70,{hook_v},1
+Style: CTA,{font},70,&H00000000,&H00000000,&H0000D7FF,&H0000D7FF,0,0,0,0,100,100,1,0,3,20,0,2,80,80,{cta_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
