@@ -9,6 +9,7 @@
   python3 run.py --reject ID      reject a clip waiting for review
   python3 run.py --publish ID     upload + submit one clip now (ignores the gate and rate limits)
   python3 run.py --submit ID      submit an already-uploaded clip to Content Rewards
+  python3 run.py --mark ID STATUS fix a record by hand (e.g. submitted after a manual submit)
 """
 import queue, sys, threading, time
 from clipper.common import load_config, log
@@ -53,6 +54,12 @@ def main():
             db.update_clip(cid, status=new, decided_by="cli", decided_at=time.time())
             print(f"{cid}: {item['status']} -> {new}")
             return
+    if "--mark" in args:   # fix a record by hand, e.g. --mark ID submitted
+        i = args.index("--mark")
+        cid, new = args[i + 1], args[i + 2]
+        db.update_clip(cid, status=new)
+        print(f"{cid}: status -> {new}")
+        return
     if "--publish" in args or "--submit" in args:
         flag = "--publish" if "--publish" in args else "--submit"
         cid = arg_after(args, flag)

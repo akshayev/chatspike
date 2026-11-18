@@ -1,7 +1,7 @@
 """Render worker (cut -> captions -> edit -> score -> gate) and Publisher
 (upload -> Content Rewards submit). State lives in SQLite (clipper/db.py);
 queue/<id>.json is written only as the hand-off file for the Node scripts."""
-import threading, time, subprocess, json, uuid
+import threading, time, subprocess, json, uuid, urllib.request
 from .common import log, ROOT, write_json
 from . import captions, hook, editor, gate, db, notify
 
@@ -87,9 +87,39 @@ class Publisher(threading.Thread):
         ready = [i for i in db.clips(status=["auto", "approved"]) if time.time() - i["created"] <= self.max_age]
         if not ready or not self._can_post():
             return
+        if not self.browser_ready():
+            return
         # approved-by-you first, then highest score
         item = max(ready, key=lambda i: (i["status"] == "approved", i.get("score", 0)))
         self.publish(item)
+
+    def browser_ready(self):
+        """The uploader drives the logged-in clipper browser over CDP. If it is not
+        running, start it and wait; never burn a clip on a closed browser."""
+        url = self.p.get("cdp_url", "http://127.0.0.1:9222") + "/json/version"
+
+        def up():
+            try:
+                urllib.request.urlopen(url, timeout=3).read()
+                return True
+            except Exception:
+                return False
+        if up():
+            self._browser_alerted = False
+            return True
+        L.warning("clipper browser not reachable on %s - starting it", url)
+        log_f = open(ROOT / "logs" / "browser.log", "ab")
+        subprocess.Popen(["node", str(ROOT / "open-browser.js"), "https://studio.youtube.com"],
+                         stdout=log_f, stderr=log_f, start_new_session=True, cwd=ROOT)
+        for _ in range(20):
+            time.sleep(1.5)
+            if up():
+                L.info("clipper browser started")
+                return True
+        if not getattr(self, "_browser_alerted", False):
+            notify.alert("Clipper browser won't start - clips are waiting. Run: node open-browser.js")
+            self._browser_alerted = True
+        return False
 
     def _handoff(self, item):
         path = QUEUE_DIR / f"{item['id']}.json"
@@ -98,6 +128,9 @@ class Publisher(threading.Thread):
 
     def publish(self, item, wait=False):
         cid = item["id"]
+        if not self.browser_ready():
+            L.error("not uploading %s: clipper browser is not running", cid)
+            return
         L.info("UPLOADING %s (score %s)", cid, item.get("score"))
         item = db.update_clip(cid, status="uploading")
         r = subprocess.run(["node", str(ROOT / "browser" / "upload_youtube.js"), str(self._handoff(item))],
