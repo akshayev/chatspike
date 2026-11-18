@@ -19,30 +19,38 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
     await page.goto(CAMPAIGN, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(3000);
 
-    // 1) Wait until Content Rewards has picked up the new upload (up to ~25 min)
-    let found = false;
-    for (let i = 0; i < 50 && !found; i++) {
+    // 1) Try the "Choose clips" list for a few minutes. If Content Rewards' YouTube
+    //    lookup is down (status "unavailable", e.g. reason "quota"), paste the link instead.
+    let found = false, unavailable = false;
+    for (let i = 0; i < 8 && !found; i++) {
       const res = await page.evaluate(async (cid) => {
-        const r = await fetch(`/api/submission/submissions/candidate-videos?campaignId=${cid}&refresh=1`);
+        const r = await fetch(`/api/submission/submissions/candidate-videos?campaignId=${cid}`);
         return await r.text();
       }, item.campaign_id);
       found = res.includes(item.video_id);
-      if (!found) await page.waitForTimeout(30000);
+      unavailable = /"status":"unavailable"/.test(res);
+      if (found || unavailable) break;
+      await page.waitForTimeout(30000);
     }
-    if (!found) throw new Error('Upload never appeared in Content Rewards candidate list');
 
-    // 2) Open the submit sheet and pick our clip
+    // 2) Open the submit sheet
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(3000);
     await page.locator('button:visible', { hasText: 'Submit clip' }).first().click();
-    await page.getByText('Choose clips').waitFor({ timeout: 30000 });
     await page.waitForTimeout(3000);
-    const tile = page.locator(`img[src*="${item.video_id}"]`).first();
-    if (await tile.count()) {
-      await tile.click();
+
+    let method;
+    if (found) {
+      method = 'list';
+      const tile = page.locator(`img[src*="${item.video_id}"]`).first();
+      if (await tile.count()) await tile.click();
+      else await page.getByText(item.title.slice(0, 30), { exact: false }).first().click({ timeout: 15000 });
     } else {
-      const byTitle = page.getByText(item.title.slice(0, 30), { exact: false }).first();
-      await byTitle.click({ timeout: 15000 });
+      method = 'link';
+      const box = page.getByPlaceholder(/paste a link/i).first();
+      await box.waitFor({ timeout: 20000 });
+      await box.fill(item.url);
+      await page.waitForTimeout(2500);   // lets the form validate the link
     }
     await shot(page, 1);
 
@@ -53,7 +61,11 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
     await submit.click();
     await page.waitForTimeout(5000);
     await shot(page, 2);
-    console.log(JSON.stringify({ ok: true, campaign: item.campaign_id, video: item.video_id }));
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    if (/error|invalid|already submitted|not allowed/i.test(bodyText.slice(0, 3000)) && /submit clip/i.test(bodyText)) {
+      throw new Error('Content Rewards showed an error after submit; see shots/cr-' + item.id + '-2.png');
+    }
+    console.log(JSON.stringify({ ok: true, method, campaign: item.campaign_id, video: item.video_id }));
   } catch (e) {
     await shot(page, 'error');
     console.log(JSON.stringify({ ok: false, error: e.message }));
