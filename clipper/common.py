@@ -17,7 +17,23 @@ def log(name):
     return logging.getLogger(name)
 
 
+def load_env(path=None):
+    """Load KEY=VALUE lines from .env into os.environ (no dependency, no overrides)."""
+    path = path or ROOT / ".env"
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.split(" #", 1)[0].strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if k and v and k not in os.environ:
+            os.environ[k] = v
+
+
 def load_config():
+    load_env()
     with open(ROOT / "config.json") as f:
         return json.load(f)
 

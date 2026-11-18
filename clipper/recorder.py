@@ -4,6 +4,7 @@ stream to end. Old segments are deleted after `keep_minutes`."""
 import subprocess, threading, time, json
 from pathlib import Path
 from .common import log, ROOT
+from .sysinfo import video_args
 
 L = log("rec")
 
@@ -30,7 +31,7 @@ def is_live(ch):
 
 class Recorder:
     def __init__(self, ch, cfg):
-        self.ch = ch
+        self.ch, self.cfg = ch, cfg
         self.keep = cfg["storage"]["keep_minutes"] * 60
         self.dir = ROOT / cfg["storage"]["rec_dir"] / ch["key"]
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -136,7 +137,7 @@ class Recorder:
         subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                         "-f", "concat", "-safe", "0", "-i", str(lst),
                         "-t", f"{t1 - t0 + 6:.2f}",
-                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                        *video_args("cut", self.cfg),
                         "-c:a", "aac", "-b:a", "192k", str(dest)], check=True)
         lst.unlink(missing_ok=True)
         return dest

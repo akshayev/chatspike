@@ -59,6 +59,9 @@ bash check.sh                                     # GPU, LLM, browser, who is li
 | `./start.sh --no-upload` | Clip only and post nothing |
 | `python3 run.py --publish <clip-id>` | Upload and submit one queued clip |
 | `bash check.sh` | Health check: CUDA, Ollama, browser, live status, RAM and disk |
+| `python3 run.py --status` | Recent clips: auto, review, rejected, uploaded, submitted |
+| `python3 run.py --approve <id>` / `--reject <id>` | Decide a clip waiting for review (or use the Discord buttons) |
+| `python3 run.py --submit <clip-id>` | Submit an uploaded clip to Content Rewards |
 
 ## Configuration
 
@@ -73,7 +76,9 @@ Everything lives in `config.json`:
 ## Project layout
 
 ```
-clipper/        real-time pipeline (recorder, chat, detector, captions, editor, hook, pipeline, gpu)
+clipper/        real-time pipeline (scheduler, recorder, chat, detector, captions, editor, hook, gate, db, notify, pipeline)
+vault/          Obsidian vault: campaign rules, decisions, runbooks, playbook (read by Claude)
+CLAUDE.md       instructions for Claude working on this repo
 browser/        Playwright scripts: YouTube upload, Content Rewards submit
 assets/fonts/   Anton (SIL OFL)
 run.py          entry point
@@ -85,7 +90,7 @@ Runtime folders `rec/`, `clips/`, `queue/`, `logs/` and `shots/` are git-ignored
 ## Roadmap
 
 - [x] **M0 · MVP:** record, detect, cut, caption, render, upload, submit
-- [ ] **M1 · Safe autopilot:** SQLite, safety gate, Discord approval bot, 2-channel priority scheduler, RAM guard, NVENC
+- [x] **M1 · Safe autopilot:** SQLite, safety gate, Discord approval bot, 2-channel priority scheduler, RAM guard, NVENC, vault + CLAUDE.md
 - [ ] **M2 · Reach:** Instagram Reels, thumbnail/cover maker, stats and earnings tracker
 - [ ] **M3 · Smart picks:** trend scout, local-LLM → Gemini → Claude router, Obsidian vault + Context7 memory
 - [ ] **M4 · Terminal app:** Textual dashboard with a Claude Agent SDK panel

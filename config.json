@@ -1,5 +1,5 @@
 {
-  "_note": "Edit channels here. enabled=false skips a channel. campaign_id = Content Rewards campaign.",
+  "_note": "Channels are in priority order (first = highest). required_tags must appear in title/description. See vault/campaigns/ for each campaign's rules.",
   "channels": [
     {
       "key": "lacy",
@@ -22,6 +22,9 @@
         0,
         496,
         278
+      ],
+      "required_tags": [
+        "#LACY"
       ]
     },
     {
@@ -45,6 +48,9 @@
         0,
         480,
         266
+      ],
+      "required_tags": [
+        "#clix"
       ]
     },
     {
@@ -61,7 +67,10 @@
         "#shorts"
       ],
       "cta": "Follow Bobby Vanriper on Twitch",
-      "min_msgs": 6
+      "min_msgs": 6,
+      "required_tags": [
+        "#bobbyvanriper"
+      ]
     },
     {
       "key": "tomo",
@@ -77,7 +86,12 @@
         "#shorts"
       ],
       "cta": "Subscribe to Tomo on YouTube @Tomovids",
-      "min_msgs": 8
+      "min_msgs": 8,
+      "required_tags": [
+        "#tomovids",
+        "#gta6",
+        "@Tomovids"
+      ]
     }
   ],
   "detect": {
@@ -95,7 +109,8 @@
     "whisper_model": "small.en",
     "whisper_device": "auto",
     "font": "Anton",
-    "caption_words_per_chunk": 3
+    "caption_words_per_chunk": 3,
+    "encoder": "auto"
   },
   "publish": {
     "auto_upload": true,
@@ -115,5 +130,19 @@
   "llm": {
     "_note": "Optional. If ANTHROPIC_API_KEY is set, Claude writes the hook title and scores virality. Otherwise templates + chat-based scoring are used.",
     "model": "claude-haiku-5-5"
+  },
+  "scheduler": {
+    "max_live": 2,
+    "ram_pause_gb": 1.5,
+    "ram_critical_gb": 1.0,
+    "poll_seconds": 60
+  },
+  "gate": {
+    "auto_score": 70,
+    "review_score": 45,
+    "min_seconds": 12,
+    "max_seconds": 60,
+    "max_age_minutes": 90,
+    "dedupe_seconds": 60
   }
 }

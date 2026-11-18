@@ -1,46 +1,87 @@
 #!/usr/bin/env python3
-"""GTA 6 auto-clipper.
+"""chatspike - live chat-spike auto-clipper.
 
-  python3 run.py                 # watch every enabled channel, clip, upload, submit
-  python3 run.py lacy clix       # only these channel keys
-  python3 run.py --no-upload     # clip only (review clips/ and queue/ yourself)
-  python3 run.py --publish ID    # upload + submit one queued clip now (waits for the submit)
-  python3 run.py --submit ID     # submit an already-uploaded clip to Content Rewards
+  python3 run.py                  watch every enabled channel (max 2 live, by priority), clip, gate, post, submit
+  python3 run.py lacy clix        only these channel keys (in this priority order)
+  python3 run.py --no-upload      clip + gate only, post nothing
+  python3 run.py --status         recent clips and what happened to them
+  python3 run.py --approve ID     approve a clip waiting for review (posts at the next free slot)
+  python3 run.py --reject ID      reject a clip waiting for review
+  python3 run.py --publish ID     upload + submit one clip now (ignores the gate and rate limits)
+  python3 run.py --submit ID      submit an already-uploaded clip to Content Rewards
 """
-import sys, queue, time
-from clipper.common import load_config, log, ROOT
-from clipper import pipeline
+import queue, sys, threading, time
+from clipper.common import load_config, log
+from clipper import db, notify, pipeline
 
 L = log("main")
+
+
+def arg_after(args, flag):
+    i = args.index(flag)
+    if i + 1 >= len(args):
+        sys.exit(f"{flag} needs a clip id (see --status)")
+    return args[i + 1]
+
+
+def status():
+    rows = db.clips(since=time.time() - 24 * 3600, limit=40)
+    if not rows:
+        print("no clips in the last 24 h")
+        return
+    print(f"{'clip id':32} {'status':14} {'score':>5}  title / reason")
+    for i in rows:
+        why = ""
+        if i["status"] in ("review", "rejected"):
+            g = i.get("gate", {})
+            why = " | " + "; ".join(g.get("hard", []) + g.get("soft", []))
+        print(f"{i['id']:32} {i['status']:14} {i.get('score', 0):>5}  {i.get('title', '')[:60]}{why[:80]}"
+              + (f"  {i['url']}" if i.get("url") else ""))
 
 
 def main():
     cfg = load_config()
     args = sys.argv[1:]
+    db.import_queue_dir(pipeline.QUEUE_DIR)
+
+    if "--status" in args:
+        return status()
+    for flag, new in (("--approve", "approved"), ("--reject", "rejected")):
+        if flag in args:
+            cid = arg_after(args, flag)
+            item = db.get_clip(cid) or sys.exit(f"unknown clip {cid}")
+            db.update_clip(cid, status=new, decided_by="cli", decided_at=time.time())
+            print(f"{cid}: {item['status']} -> {new}")
+            return
     if "--publish" in args or "--submit" in args:
-        from clipper.common import read_json
         flag = "--publish" if "--publish" in args else "--submit"
-        cid = args[args.index(flag) + 1]
+        cid = arg_after(args, flag)
+        item = db.get_clip(cid) or sys.exit(f"unknown clip {cid} (see --status)")
         pub = pipeline.Publisher(cfg)
-        if flag == "--publish":
-            pub.publish(read_json(pipeline.QUEUE_DIR / f"{cid}.json"), wait=True)
-        else:
-            pub.submit(read_json(pipeline.QUEUE_DIR / f"{cid}.json"))
+        pub.publish(item, wait=True) if flag == "--publish" else pub.submit(item)
         return
+
     if "--no-upload" in args:
         cfg["publish"]["auto_upload"] = False
     keys = [a for a in args if not a.startswith("--")]
-    chans = [c for c in cfg["channels"] if c["enabled"] and (not keys or c["key"] in keys)]
+    enabled = [c for c in cfg["channels"] if c["enabled"]]
+    chans = [c for k in keys for c in enabled if c["key"] == k] if keys else enabled
     if not chans:
         sys.exit("no channels selected")
+
+    from clipper.scheduler import Scheduler
+    from clipper import sysinfo
+    notify.start()
+    sysinfo.nvenc_ok()
     rq = queue.Queue()
-    for ch in chans:
-        pipeline.ChannelWatcher(ch, cfg, rq).start()
-    import threading
-    threading.Thread(target=pipeline.render_worker, args=(cfg, rq), daemon=True).start()
+    threading.Thread(target=pipeline.render_worker, args=(cfg, rq, {c["key"]: c for c in chans}),
+                     daemon=True, name="render").start()
+    Scheduler(chans, cfg, lambda ch, rec, ev: rq.put((ch, rec, ev))).start()
     pipeline.Publisher(cfg).start()
-    L.info("watching: %s | auto_upload=%s auto_submit=%s",
-           ", ".join(c["key"] for c in chans), cfg["publish"]["auto_upload"], cfg["publish"]["auto_submit"])
+    L.info("priority: %s | max live %d | auto_upload=%s | discord=%s",
+           " > ".join(c["key"] for c in chans), cfg.get("scheduler", {}).get("max_live", 2),
+           cfg["publish"]["auto_upload"], "on" if notify.enabled() else "off")
+    notify.alert(f"chatspike started - watching {', '.join(c['key'] for c in chans)}")
     try:
         while True:
             time.sleep(3600)

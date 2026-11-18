@@ -3,6 +3,7 @@ hook title on top, CTA at the end, loudness normalised."""
 import subprocess, json
 from pathlib import Path
 from .common import log, ROOT
+from .sysinfo import video_args
 
 L = log("edit")
 FONTS = ROOT / "assets" / "fonts"
@@ -39,7 +40,7 @@ def render(raw, ass_path, out, ch, cfg, start=0.0, duration=None):
         cmd += ["-t", f"{duration:.2f}"]
     cmd += ["-filter_complex", vf, "-map", "[v]", "-map", "0:a?",
             "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-profile:v", "high",
+            *video_args("final", cfg), "-profile:v", "high",
             "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart", str(out)]
     subprocess.run(cmd, check=True)
     return out
