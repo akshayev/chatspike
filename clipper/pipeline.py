@@ -116,7 +116,7 @@ class Publisher(threading.Thread):
             item = max(ready, key=lambda i: i["score"])
             self.publish(item)
 
-    def publish(self, item):
+    def publish(self, item, wait=False):
         path = QUEUE_DIR / f"{item['id']}.json"
         L.info("UPLOADING %s (score %s)", item["id"], item["score"])
         item["status"] = "uploading"; write_json(path, item)
@@ -132,10 +132,15 @@ class Publisher(threading.Thread):
         write_json(path, item)
         L.info("UPLOADED %s -> %s", item["id"], out["url"])
         if self.p["auto_submit"]:
-            threading.Thread(target=self.submit, args=(item,), daemon=True).start()
+            if wait:
+                self.submit(item)
+            else:
+                threading.Thread(target=self.submit, args=(item,), daemon=True).start()
 
     def submit(self, item):
         path = QUEUE_DIR / f"{item['id']}.json"
+        L.info("SUBMITTING %s to campaign %s (waits until Content Rewards sees the upload)",
+               item["id"], item["campaign_id"])
         r = subprocess.run(["node", str(ROOT / "browser" / "submit_cr.js"), str(path)],
                            capture_output=True, text=True, timeout=1800)
         out = _last_json(r.stdout) or {}
@@ -143,7 +148,8 @@ class Publisher(threading.Thread):
         item["status"] = "submitted" if out.get("ok") else "submit_failed"
         item["submit_result"] = out or (r.stderr or "")[-1500:]
         write_json(path, item)
-        L.info("SUBMIT %s -> %s", item["id"], item["status"])
+        L.info("SUBMIT %s -> %s %s", item["id"], item["status"],
+               "" if item["status"] == "submitted" else str(item["submit_result"])[:300])
 
 
 def _last_json(s):

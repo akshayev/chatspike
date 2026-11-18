@@ -4,7 +4,8 @@
   python3 run.py                 # watch every enabled channel, clip, upload, submit
   python3 run.py lacy clix       # only these channel keys
   python3 run.py --no-upload     # clip only (review clips/ and queue/ yourself)
-  python3 run.py --publish ID    # upload + submit one queued clip now
+  python3 run.py --publish ID    # upload + submit one queued clip now (waits for the submit)
+  python3 run.py --submit ID     # submit an already-uploaded clip to Content Rewards
 """
 import sys, queue, time
 from clipper.common import load_config, log, ROOT
@@ -16,12 +17,15 @@ L = log("main")
 def main():
     cfg = load_config()
     args = sys.argv[1:]
-    if "--publish" in args:
+    if "--publish" in args or "--submit" in args:
         from clipper.common import read_json
-        cid = args[args.index("--publish") + 1]
-        item = read_json(pipeline.QUEUE_DIR / f"{cid}.json")
-        pipeline.Publisher(cfg).publish(item)
-        time.sleep(1)
+        flag = "--publish" if "--publish" in args else "--submit"
+        cid = args[args.index(flag) + 1]
+        pub = pipeline.Publisher(cfg)
+        if flag == "--publish":
+            pub.publish(read_json(pipeline.QUEUE_DIR / f"{cid}.json"), wait=True)
+        else:
+            pub.submit(read_json(pipeline.QUEUE_DIR / f"{cid}.json"))
         return
     if "--no-upload" in args:
         cfg["publish"]["auto_upload"] = False
