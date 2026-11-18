@@ -39,17 +39,16 @@ class Recorder:
 
     def start(self):
         url = stream_url(self.ch)
-        sl_cmd = ["streamlink", "--stdout", "--retry-streams", "5", "--retry-open", "3",
-                  "--stream-segment-threads", "2"]
-        if self.ch["platform"] == "twitch":
-            sl_cmd += ["--twitch-disable-ads"]
-        sl_cmd += [url, "1080p60,1080p,936p60,720p60,720p,best"]
+        # Same invocation that measured 0.99 capture health in diag_capture.sh.
+        # (--stream-segment-threads 2 dropped ~1/3 of Twitch segments; --twitch-disable-ads is a no-op now.)
+        sl_cmd = ["streamlink", "--stdout", "--retry-open", "3",
+                  url, self.ch.get("quality", "1080p60,1080p,best")]
         ff_cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
                   "-c", "copy", "-map", "0:v:0", "-map", "0:a:0?",
                   "-f", "segment", "-segment_time", "4", "-reset_timestamps", "1",
                   "-strftime", "1", str(self.dir / "%s.ts")]
         L.info("recording %s -> %s", url, self.dir)
-        self.sl = subprocess.Popen(sl_cmd + ["--loglevel", "warning"], stdout=subprocess.PIPE,
+        self.sl = subprocess.Popen(sl_cmd[:1] + ["--loglevel", "warning"] + sl_cmd[1:], stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=False)
         self.ff = subprocess.Popen(ff_cmd, stdin=self.sl.stdout)
         self.sl.stdout.close()
