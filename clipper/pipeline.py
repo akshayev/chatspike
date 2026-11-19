@@ -140,7 +140,8 @@ class Publisher(threading.Thread):
         return db.update_clip(item["id"], file=str(small))
 
     def _handoff(self, item):
-        path = QUEUE_DIR / f"{item['id']}.json"
+        # hand-off files for the Node scripts live in queue/handoff/ (never imported as clips)
+        path = QUEUE_DIR / "handoff" / f"{item['id']}.json"
         write_json(path, item)
         return path
 

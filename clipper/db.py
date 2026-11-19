@@ -128,8 +128,17 @@ def log_event(channel, kind, data=None):
 
 def import_queue_dir(qdir):
     """One-time migration: pull legacy queue/*.json records into the DB."""
+    with _lock:   # remove records created by mistake from Reel hand-off files
+        c = conn()
+        bad = c.execute("DELETE FROM clips WHERE id LIKE '%-ig'").rowcount
+        c.commit()
+    if bad:
+        L.info("removed %d stray hand-off records", bad)
     n = 0
     for f in sorted(qdir.glob("*.json")):
+        if f.stem.endswith("-ig"):
+            f.unlink(missing_ok=True)
+            continue
         try:
             item = json.loads(f.read_text())
             if get_clip(item["id"]) is None:
