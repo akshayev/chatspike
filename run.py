@@ -5,6 +5,7 @@
   python3 run.py lacy clix        only these channel keys (in this priority order)
   python3 run.py --no-upload      clip + gate only, post nothing
   python3 run.py --status         recent clips and what happened to them
+  python3 run.py --stats          views per campaign + pool progress / estimated earnings (from Content Rewards)
   python3 run.py --approve ID     approve a clip waiting for review (posts at the next free slot)
   python3 run.py --reject ID      reject a clip waiting for review
   python3 run.py --publish ID     upload + submit one clip now (ignores the gate and rate limits)
@@ -47,6 +48,13 @@ def main():
 
     if "--status" in args:
         return status()
+    if "--stats" in args:
+        from clipper import stats
+        if not pipeline.Publisher(cfg).browser_ready():
+            sys.exit("clipper browser is not running")
+        data = stats.fetch(cfg)
+        stats.store(data)
+        return stats.print_report(stats.summary(cfg, data))
     for flag, new in (("--approve", "approved"), ("--reject", "rejected")):
         if flag in args:
             cid = arg_after(args, flag)
@@ -94,6 +102,8 @@ def main():
                      daemon=True, name="render").start()
     Scheduler(chans, cfg, lambda ch, rec, ev: rq.put((ch, rec, ev))).start()
     pipeline.Publisher(cfg).start()
+    from clipper.stats import StatsTracker
+    StatsTracker(cfg).start()
     L.info("priority: %s | max live %d | auto_upload=%s | discord=%s",
            " > ".join(c["key"] for c in chans), cfg.get("scheduler", {}).get("max_live", 2),
            cfg["publish"]["auto_upload"], "on" if notify.enabled() else "off")

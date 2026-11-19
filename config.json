@@ -25,7 +25,11 @@
       ],
       "required_tags": [
         "#LACY"
-      ]
+      ],
+      "payout": {
+        "type": "pool",
+        "min_views": 750000
+      }
     },
     {
       "key": "clix",
@@ -51,7 +55,11 @@
       ],
       "required_tags": [
         "#clix"
-      ]
+      ],
+      "payout": {
+        "type": "pool",
+        "min_views": 400000
+      }
     },
     {
       "key": "bobby",
@@ -70,7 +78,13 @@
       "min_msgs": 6,
       "required_tags": [
         "#bobbyvanriper"
-      ]
+      ],
+      "payout": {
+        "type": "cpm",
+        "rate": 1.0,
+        "min_views": 1950,
+        "max": 250
+      }
     },
     {
       "key": "tomo",
@@ -91,7 +105,13 @@
         "#tomovids",
         "#gta6",
         "@Tomovids"
-      ]
+      ],
+      "payout": {
+        "type": "cpm",
+        "rate": 2.0,
+        "min_views": 2000,
+        "max": 150
+      }
     }
   ],
   "detect": {

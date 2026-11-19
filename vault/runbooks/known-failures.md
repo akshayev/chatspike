@@ -10,3 +10,7 @@
 | "This post is already submitted to this campaign" | already submitted (often by hand) | treated as success |
 | `--publish` uploads but never submits | the process exited before the background submit thread ran | `--publish` now waits; `--submit ID` exists |
 | file copied to the laptop "succeeds" but the old version stays | device_commit_files did not overwrite | use git (push, then `git pull`) |
+| capture health 0.67-0.83 only when chat runs in the same process | streamlink's stderr pipe was read by a Python thread; busy app threads throttled it | recorder runs `streamlink | ffmpeg` as one detached shell pipeline (logs/rec-<ch>.log); Lacy back to 0.97. Clix once 0.74: watch, not yet explained |
+| `FileNotFoundError: 'streamlink'` | ran `.venv/bin/python` without activating the venv | recorder resolves streamlink next to sys.executable |
+| submit says failed but CR shows "Clip submitted" | success screen keeps the picker element in the DOM | detect "Clip submitted" text |
+| clip deselected in CR picker | newest upload is PRE-selected (aria-pressed=true); clicking toggles it off | only click when not selected; tick the hidden checkbox with check() |
