@@ -62,6 +62,8 @@ bash check.sh                                     # GPU, LLM, browser, who is li
 | `python3 run.py --status` | Recent clips: auto, review, rejected, uploaded, submitted |
 | `python3 run.py --approve <id>` / `--reject <id>` | Decide a clip waiting for review (or use the Discord buttons) |
 | `python3 run.py --submit <clip-id>` | Submit an uploaded clip to Content Rewards |
+| `python3 run.py --stats` | Views per campaign, pool progress, estimated earnings (from Content Rewards) |
+| `python3 run.py --ig <clip-id> [--dry]` | Post a clip as an Instagram Reel (`--dry` stops before Share) |
 
 ## Configuration
 

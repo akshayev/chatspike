@@ -10,6 +10,7 @@
   python3 run.py --reject ID      reject a clip waiting for review
   python3 run.py --publish ID     upload + submit one clip now (ignores the gate and rate limits)
   python3 run.py --submit ID      submit an already-uploaded clip to Content Rewards
+  python3 run.py --ig ID [--dry]  post one clip as an Instagram Reel (--dry stops before Share)
   python3 run.py --mark ID STATUS fix a record by hand (e.g. submitted after a manual submit)
 """
 import queue, sys, threading, time
@@ -68,6 +69,14 @@ def main():
         db.update_clip(cid, status=new)
         print(f"{cid}: status -> {new}")
         return
+    if "--ig" in args:   # --ig ID [--dry]: post one clip as a Reel (dry = stop before Share)
+        cid = arg_after(args, "--ig")
+        item = db.get_clip(cid) or sys.exit(f"unknown clip {cid}")
+        yt = pipeline.Publisher(cfg)
+        if not yt.browser_ready():
+            sys.exit("clipper browser is not running")
+        print(pipeline.InstagramPublisher(cfg, yt).post(item, dry="--dry" in args))
+        return
     if "--publish" in args or "--submit" in args:
         flag = "--publish" if "--publish" in args else "--submit"
         cid = arg_after(args, flag)
@@ -101,7 +110,9 @@ def main():
     threading.Thread(target=pipeline.render_worker, args=(cfg, rq, {c["key"]: c for c in chans}),
                      daemon=True, name="render").start()
     Scheduler(chans, cfg, lambda ch, rec, ev: rq.put((ch, rec, ev))).start()
-    pipeline.Publisher(cfg).start()
+    yt = pipeline.Publisher(cfg)
+    yt.start()
+    pipeline.InstagramPublisher(cfg, yt).start()
     from clipper.stats import StatsTracker
     StatsTracker(cfg).start()
     L.info("priority: %s | max live %d | auto_upload=%s | discord=%s",

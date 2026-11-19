@@ -3,7 +3,7 @@
 queue/<id>.json is written only as the hand-off file for the Node scripts."""
 import threading, time, subprocess, json, uuid, urllib.request
 from .common import log, ROOT, write_json
-from . import captions, hook, editor, gate, db, notify
+from . import captions, hook, editor, gate, db, notify, thumbs
 
 L = log("pipe")
 QUEUE_DIR = ROOT / "queue"
@@ -39,6 +39,7 @@ def render_worker(cfg, render_q, chans_by_key):
             raw.unlink(missing_ok=True)
             item = {"id": cid, "channel": ch["key"], "campaign_id": ch["campaign_id"],
                     "file": str(final), "created": time.time(), "duration": round(dur - start, 2),
+                    "trim_start": round(start, 2),
                     "event": ev, **meta}
             item["gate"] = gate.check(item, ch, cfg)
             item["status"] = item["gate"]["decision"]
@@ -178,3 +179,80 @@ def _last_json(s):
         except Exception:
             continue
     return None
+
+
+class InstagramPublisher(threading.Thread):
+    """Cross-posts the best clips that are already live on YouTube as Instagram Reels,
+    then submits the Reel to the same campaign. Own, slower limits while the new
+    account warms up (config publish.instagram)."""
+
+    def __init__(self, cfg, yt):
+        super().__init__(daemon=True, name="instagram")
+        self.cfg, self.yt = cfg, yt
+        self.p = cfg["publish"].get("instagram", {})
+        self.max_age = cfg.get("gate", {}).get("max_age_minutes", 90) * 60
+
+    def _ig_times(self):
+        return sorted(c["ig"]["uploaded_at"] for c in db.clips(since=time.time() - 2 * 86400, limit=2000)
+                      if (c.get("ig") or {}).get("uploaded_at"))
+
+    def _can_post(self):
+        nowt, h = time.time(), self._ig_times()
+        if h and nowt - h[-1] < self.p.get("min_gap_minutes", 60) * 60:
+            return False
+        return sum(1 for t in h if nowt - t < 86400) < self.p.get("max_per_day", 5)
+
+    def run(self):
+        while True:
+            time.sleep(30)
+            try:
+                if not self.p.get("enabled") or not self.cfg["publish"]["auto_upload"]:
+                    continue
+                cands = [c for c in db.clips(status=["uploaded", "submitted", "submit_failed"])
+                         if not c.get("ig") and time.time() - c["created"] <= self.max_age]
+                if cands and self._can_post() and self.yt.browser_ready():
+                    self.post(max(cands, key=lambda c: c.get("score", 0)))
+            except Exception as e:
+                L.exception("instagram tick failed: %s", e)
+
+    def post(self, item, dry=False):
+        cid = item["id"]
+        try:
+            item["cover"] = thumbs.cover(item)
+        except Exception as e:
+            L.warning("cover failed for %s: %s", cid, e)
+        path = self.yt._handoff(item)
+        L.info("INSTAGRAM %s %s", "DRY-RUN" if dry else "UPLOADING", cid)
+        r = subprocess.run(["node", str(ROOT / "browser" / "upload_instagram.js"), str(path)] + (["--dry"] if dry else []),
+                           capture_output=True, text=True, timeout=900)
+        out = _last_json(r.stdout) or {}
+        if dry:
+            L.info("INSTAGRAM dry-run %s -> %s (screenshots: shots/ig-%s-*.png)", cid, out or r.stderr[-300:], cid)
+            return out
+        if not out.get("videoId"):
+            err = out.get("error") or (r.stderr or r.stdout)[-600:]
+            db.update_clip(cid, ig={"status": "upload_failed", "error": err, "t": time.time()})
+            L.error("instagram upload failed %s: %s", cid, err[-300:])
+            notify.alert(f"Instagram upload failed for {cid}: {err[-300:]}")
+            return out
+        ig = {"status": "uploaded", "uploaded_at": time.time(), "video_id": out["videoId"], "url": out["url"]}
+        db.update_clip(cid, ig=ig)
+        L.info("INSTAGRAM UPLOADED %s -> %s", cid, out["url"])
+        notify.alert(f"Reel posted: **{item['title']}**\n{out['url']}")
+        if self.cfg["publish"]["auto_submit"]:
+            self.submit(cid)
+        return out
+
+    def submit(self, cid):
+        item = db.get_clip(cid)
+        ig = item.get("ig") or {}
+        handoff = dict(item, id=f"{cid}-ig", video_id=ig.get("video_id"), url=ig.get("url"))
+        r = subprocess.run(["node", str(ROOT / "browser" / "submit_cr.js"), str(self.yt._handoff(handoff))],
+                           capture_output=True, text=True, timeout=1800)
+        out = _last_json(r.stdout) or {}
+        ig["submit"] = "submitted" if out.get("ok") else "submit_failed"
+        ig["submit_result"] = out or (r.stderr or "")[-600:]
+        db.update_clip(cid, ig=ig)
+        L.info("INSTAGRAM SUBMIT %s -> %s", cid, ig["submit"])
+        if not out.get("ok"):
+            notify.alert(f"Content Rewards submit FAILED for the Reel of {cid} - submit by hand within 30 min:\n{ig.get('url')}")
