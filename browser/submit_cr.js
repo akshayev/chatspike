@@ -80,9 +80,10 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
       await page.waitForTimeout(500);
       const txt = await page.evaluate(() => document.body.innerText);
       already = /already submitted to this campaign/i.test(txt);
-      done = already || !(await page.locator('.clip-picker-root').count());
+      done = already || /Clip submitted/i.test(txt) || !(await page.locator('.clip-picker-root').count());
     }
     await shot(page, 2);
+    await page.locator('button:visible', { hasText: /^Done$/ }).first().click({ timeout: 3000 }).catch(() => {});
     if (!done) throw new Error('submit sheet stayed open; see shots/cr-' + item.id + '-2.png');
     console.log(JSON.stringify({ ok: true, method, already, campaign: item.campaign_id, video: item.video_id }));
   } catch (e) {
