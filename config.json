@@ -182,6 +182,9 @@
     "claude_for_borderline": true,
     "claude_for_playbook": true,
     "trend_every_hours": 3,
-    "_note": "Router order: local Ollama -> Gemini free tier -> Claude (only for borderline verdicts and the playbook). Keys in .env."
+    "_note": "Router order: local Ollama -> Gemini free tier -> Claude (only for borderline verdicts and the playbook). Keys in .env.",
+    "claude_backend": "cli",
+    "claude_cli_model": "haiku",
+    "tui_model": "sonnet"
   }
 }

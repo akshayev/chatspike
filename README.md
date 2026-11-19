@@ -57,6 +57,8 @@ bash check.sh                                     # GPU, LLM, browser, who is li
 | --- | --- |
 | `./start.sh lacy clix` | Watch only these channel keys |
 | `./tui.sh` | Terminal dashboard: live channels, review queue (a/r/p), posted clips, Claude operator chat |
+| `claude` (in this folder) | Claude Code with the chatspike tools + `/status`, `/review`, `/fix`, `/trends` |
+| `python3 run.py --actions` | confirm (y/n) the changes Claude proposed |
 | `./start.sh --no-upload` | Clip only and post nothing |
 | `python3 run.py --publish <clip-id>` | Upload and submit one queued clip |
 | `bash check.sh` | Health check: CUDA, Ollama, browser, live status, RAM and disk |
@@ -98,7 +100,7 @@ Runtime folders `rec/`, `clips/`, `queue/`, `logs/` and `shots/` are git-ignored
 - [x] **M1 · Safe autopilot:** SQLite, safety gate, Discord approval bot, 2-channel priority scheduler, RAM guard, NVENC, vault + CLAUDE.md
 - [x] **M2 · Reach:** Instagram Reels, thumbnail/cover maker, stats and earnings tracker
 - [x] **M3 · Smart picks:** trend scout, local-LLM → Gemini → Claude router, AI hooks + 4-question scoring, Claude second opinion on borderline clips
-- [x] **M4 · Terminal app:** Textual dashboard with a Claude Agent SDK panel (`./tui.sh`)
+- [x] **M4 · Terminal app:** Textual dashboard with a Claude operator panel (`./tui.sh`), powered by the Claude Code CLI (your Claude login, no API key)
 
 ## Responsible use
 
@@ -109,3 +111,22 @@ Runtime folders `rec/`, `clips/`, `queue/`, `logs/` and `shots/` are git-ignored
 ## Credits
 
 Built on [streamlink](https://streamlink.github.io), [FFmpeg](https://ffmpeg.org), [faster-whisper](https://github.com/SYSTRAN/faster-whisper), [Playwright](https://playwright.dev) and [Ollama](https://ollama.com). Font: Anton by Vernon Adams (SIL Open Font License).
+
+## Claude without an API key
+
+Claude runs through the **Claude Code CLI** on your Claude plan (Pro/Max). Install once and log in:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+claude            # sign in in the browser, accept "trust this folder", then /exit
+```
+
+Three places use it:
+
+| Where | How | Can change things? |
+|---|---|---|
+| Dashboard Agent tab (`./tui.sh`) | `claude -p` with only the chatspike MCP tools (no shell, no files) | No. It proposes; you press Yes |
+| `claude` in this folder | interactive Claude Code + `.mcp.json` + `.claude/commands` | Only with your approval (see `.claude/settings.json`) |
+| Clipper AI tier `claude` | `claude -p --model haiku`, one turn, no tools | No. It returns a verdict / playbook JSON |
+
+The clipper's Claude calls are still capped by `ai.claude_daily_calls`. To use an API key instead, set `ai.claude_backend` to `"api"` and add `ANTHROPIC_API_KEY` to `.env`.

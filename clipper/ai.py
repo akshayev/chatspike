@@ -2,15 +2,17 @@
 
   tier "local"  Ollama on the laptop GPU (free)     - default for hooks/scores/clustering
   tier "free"   Gemini free tier (GEMINI_API_KEY)   - fallback when RAM is low or local fails
-  tier "claude" Anthropic API (ANTHROPIC_API_KEY)   - only jobs that ask for it: borderline
-                                                      verdicts, the trend playbook
+  tier "claude" Claude Code CLI (`claude -p`, your Claude login; no API key needed)
+                                                    - only jobs that ask for it: borderline verdicts,
+                                                      the trend playbook. ai.claude_backend "api" +
+                                                      ANTHROPIC_API_KEY uses the API instead.
 
 ask_json(prompt, tiers=[...]) tries the tiers in order and returns (dict, tier) or (None, None).
 API shapes checked 2026-11-19: Ollama POST /api/generate {model,prompt,format:"json",stream:false,
 options,keep_alive} -> response/prompt_eval_count/eval_count; Gemini v1beta
 models/{id}:generateContent; Anthropic /v1/messages.
 """
-import json, os, re, time, urllib.request
+import json, os, re, shutil, subprocess, time, urllib.request
 from .common import log, load_config
 from . import db, sysinfo
 
@@ -69,10 +71,39 @@ def _free(prompt, cfg, purpose):
     return _parse(r["candidates"][0]["content"]["parts"][0]["text"])
 
 
+def claude_bin():
+    """The claude CLI, also when ~/.local/bin is not on PATH (e.g. started from a desktop launcher)."""
+    p = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
+    return p if os.path.exists(p) else None
+
+
+def cli_env():
+    """Env for the claude CLI without ANTHROPIC_API_KEY, so it uses the user's Claude login (plan), not the key."""
+    return {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+
+
+def _claude_cli(prompt, a):
+    """Claude Code CLI with the user's Claude login: no tools, one turn, not saved as a session."""
+    exe = claude_bin()
+    if not exe:
+        raise RuntimeError("no ANTHROPIC_API_KEY and no claude CLI")
+    model = a.get("claude_cli_model", "haiku")
+    r = subprocess.run([exe, "-p", prompt + "\n\nReply with JSON only.", "--output-format", "json", "--model", model,
+                        "--tools", "", "--strict-mcp-config", "--max-turns", "1", "--no-session-persistence"],
+                       capture_output=True, text=True, timeout=a.get("claude_cli_timeout", 120), cwd="/tmp",
+                       env=cli_env())
+    try:
+        j = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"claude CLI failed: {(r.stderr or r.stdout)[-200:]}")
+    if j.get("is_error"):
+        raise RuntimeError(f"claude CLI: {str(j.get('result') or j.get('subtype'))[:200]}")
+    u = j.get("usage", {})
+    tin = u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+    return j.get("result", ""), "cli:" + model, tin, u.get("output_tokens", 0)
+
+
 def _claude(prompt, cfg, purpose):
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    if not key:
-        raise RuntimeError("no ANTHROPIC_API_KEY")
     a = cfg.get("ai", {})
     budget = a.get("claude_daily_calls", 40)
     with db._lock:
@@ -80,15 +111,21 @@ def _claude(prompt, cfg, purpose):
                                  (time.time() - 86400,)).fetchone()[0]
     if used >= budget:
         raise RuntimeError(f"Claude daily budget reached ({used}/{budget})")
-    model = a.get("claude_model", cfg.get("llm", {}).get("model", "claude-haiku-5-5"))
     t0 = time.time()
-    r = _post("https://api.anthropic.com/v1/messages",
-              {"model": model, "max_tokens": a.get("claude_max_tokens", 700),
-               "messages": [{"role": "user", "content": prompt}]},
-              {"x-api-key": key, "anthropic-version": "2023-06-01"}, timeout=60)
-    u = r.get("usage", {})
-    _log("claude", model, purpose, t0, u.get("input_tokens", 0), u.get("output_tokens", 0), True)
-    return _parse(r["content"][0]["text"])
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key and a.get("claude_backend", "cli") == "api":
+        model = a.get("claude_model", "claude-haiku-5-5")
+        r = _post("https://api.anthropic.com/v1/messages",
+                  {"model": model, "max_tokens": a.get("claude_max_tokens", 700),
+                   "messages": [{"role": "user", "content": prompt}]},
+                  {"x-api-key": key, "anthropic-version": "2023-06-01"}, timeout=60)
+        u = r.get("usage", {})
+        text, tin, tout = r["content"][0]["text"], u.get("input_tokens", 0), u.get("output_tokens", 0)
+    else:
+        text, model, tin, tout = _claude_cli(prompt, a)
+    out = _parse(text)
+    _log("claude", model, purpose, t0, tin, tout, True)
+    return out
 
 
 TIERS = {"local": _local, "free": _free, "claude": _claude}

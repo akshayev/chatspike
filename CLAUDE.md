@@ -15,8 +15,9 @@ Live-stream auto-clipper for the GTA 6 launch. It records Twitch and YouTube str
 - `data/clipper.db`: SQLite source of truth (tables: clips, events, ai_calls)
 - `vault/`: Obsidian vault with campaigns, decisions, runbooks, playbook and learnings
 - `config.json`: channels in priority order, with thresholds and limits
-- `clipper/ai.py`: AI router (local Ollama → Gemini free → Claude). **Claude is only used for borderline-clip verdicts and the trend playbook**, capped by `ai.claude_daily_calls`. Check usage with `run.py --ai-usage`.
-- `tui/`: terminal dashboard (`./tui.sh`) + Claude operator agent (`tui/agent.py`, Agent SDK in-process tools; state changes ask the user). Talks to the running clipper via `logs/status.json` (heartbeat) and `data/control.json` (paused channels).
+- `clipper/ai.py`: AI router (local Ollama → Gemini free → Claude via the `claude` CLI; `ai.claude_backend: "api"` switches to the API key). **Claude is only used for borderline-clip verdicts and the trend playbook**, capped by `ai.claude_daily_calls`. Check usage with `run.py --ai-usage`.
+- `tui/`: terminal dashboard (`./tui.sh`). The operator agent (`tui/agent.py`) runs `claude -p` (the user's Claude login, no API key) with only the chatspike MCP server (`tui/mcp_server.py` → `tui/tools.py`): read tools + `request_action`, which queues a proposal in `data/actions.json`; the user confirms in the dashboard or with `run.py --actions`.
+- Interactive: `claude` in this folder loads `.mcp.json` (chatspike tools) and `.claude/commands` (/status, /review, /fix, /trends). Never read `.env`. Talks to the running clipper via `logs/status.json` (heartbeat) and `data/control.json` (paused channels).
 - `clipper/trends.py`: trend scout → `vault/playbook/current.json` (read by `hook.py` when writing hooks)
 
 ## Commands
@@ -24,7 +25,7 @@ Live-stream auto-clipper for the GTA 6 launch. It records Twitch and YouTube str
 - `./start.sh [--no-upload] [channels…]`: run
 - `python3 run.py --status | --approve ID | --reject ID | --publish ID | --submit ID`
 - `bash diag_capture.sh <channel> 60 A`: measure capture health
-- `python3 run.py --stats | --trends | --ai-usage | --ig ID [--dry] | --ig-submit ID`
+- `python3 run.py --stats | --trends | --ai-usage | --actions [--list] | --ig ID [--dry] | --ig-submit ID`
 
 ## Machine
 Laptop: Ubuntu, i5-13450HX, 14 GB RAM (often about 5 GB free), RTX 3050 6 GB, Python 3.14 venv. The code is developed in the cloud and pushed to GitHub (akshayev/chatspike); the laptop runs `git pull`.

@@ -85,7 +85,7 @@ class Dashboard(App):
         self.query_one("#queue", DataTable).add_columns("clip", "ch", "score", "title", "why", "Claude says")
         self.query_one("#posts", DataTable).add_columns("time", "ch", "score", "views", "YouTube", "Instagram", "status")
         chat = self.query_one("#chat", RichLog)
-        chat.write("[b]Claude operator[/b] - asks before approving, rejecting, retitling or pausing anything.")
+        chat.write("[b]Claude operator[/b] (your Claude login via the claude CLI) - proposes changes, you confirm. /new starts over.")
         why = Agent.available()
         if why:
             chat.write(f"[yellow]{why}[/yellow]")
@@ -184,6 +184,8 @@ class Dashboard(App):
         chat = self.query_one("#chat", RichLog)
         chat.write(f"\n[b cyan]you>[/b cyan] {e.value}")
         e.input.value = ""
+        if e.value.strip() == "/new":
+            self.agent.reset(); chat.write("[dim]new conversation[/dim]"); return
         why = Agent.available()
         if why:
             chat.write(f"[yellow]{why}[/yellow]")

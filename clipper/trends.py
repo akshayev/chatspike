@@ -3,7 +3,7 @@
   - Reddit r/GTA6 hot posts (what the community is talking about)    no key
   - Google Trends rising related queries (optional: pip install pytrends)
   - Twitch top GTA 6 streams (optional: TWITCH_CLIENT_ID/SECRET)
-The playbook is written by Claude when ANTHROPIC_API_KEY is set (1 call per run),
+The playbook is written by Claude (claude CLI login, or the API key) when available (1 call per run),
 otherwise by the local model. Output: vault/playbook/current.json + history in hooks.md."""
 import json, os, threading, time, urllib.parse, urllib.request
 from .common import log, ROOT

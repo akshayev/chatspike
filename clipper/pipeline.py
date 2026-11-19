@@ -57,7 +57,7 @@ def render_worker(cfg, render_q, chans_by_key):
 
 def claude_second_opinion(item, ch, cfg):
     """Borderline clips only: ask Claude whether it is worth posting. The answer is shown
-    with the Discord buttons; you still decide. Skipped silently without ANTHROPIC_API_KEY."""
+    with the Discord buttons; you still decide. Skipped silently when Claude (CLI or API) is unavailable."""
     if not cfg.get("ai", {}).get("claude_for_borderline", True):
         return item
     prompt = f"""You review short clips for a GTA 6 streamer-clips channel before they are posted to YouTube Shorts

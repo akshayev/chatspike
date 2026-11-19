@@ -5,6 +5,8 @@ queue/
 logs/
 shots/
 data/*.db*
+data/actions.json
+data/control.json
 # environments & secrets
 .venv/
 node_modules/

@@ -21,3 +21,6 @@
 | trends: `reddit failed: HTTP Error 403: Blocked` | Reddit blocks scripted JSON requests | fall back to the public RSS feed |
 | playbook suggests "trailer", "pre order", "review" terms | small local model drifts to off-topic search terms | `trends.sanitize()` drops off-topic terms (misleading titles get Reach rejections) and shortens hooks |
 | playbook invents or unsafe terms ("Sex in GTA6", "Mandy", "PS5 update") | 3B local model hallucinates trends | hot terms are now counted from real autocomplete/Trends data; model terms kept only if they appear in the data; UNSAFE + OFF_TOPIC block lists; hook angles must be {N} templates |
+| `No module named 'mcp.server.fastmcp'` | mcp 2.x renamed FastMCP to MCPServer (`mcp.server.mcpserver`) | `tui/mcp_server.py` imports MCPServer, falls back to FastMCP on 1.x |
+| agent: "Authentication error" / "not logged in" | the claude CLI has no login on this machine | run `claude` once in a terminal and sign in |
+| "Ignoring N permissions.allow entries … not been trusted" | folder not trusted by Claude Code yet | run `claude` here once and accept the trust dialog |

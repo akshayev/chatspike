@@ -14,6 +14,7 @@
   python3 run.py --submit ID      submit an already-uploaded clip to Content Rewards
   python3 run.py --ig ID [--dry]  post one clip as an Instagram Reel (--dry stops before Share)
   python3 run.py --ig-submit ID   submit an already-posted Reel to its campaign
+  python3 run.py --actions        confirm (y/n) changes Claude proposed; --actions --list only shows them
   python3 run.py --mark ID STATUS fix a record by hand (e.g. submitted after a manual submit)
 """
 import json, queue, sys, threading, time
@@ -52,6 +53,18 @@ def main():
 
     if "--status" in args:
         return status()
+    if "--actions" in args:
+        from tui import tools as T
+        pend = [a for a in T.load_actions() if a["state"] == "pending"]
+        if not pend:
+            return print("no pending proposals")
+        for a in pend:
+            print("\n" + T.describe(a))
+            if "--list" in args:
+                continue
+            ok = input("apply? [y/N] ").strip().lower() == "y"
+            print(" ->", T.apply_action(a, ok))
+        return
     if "--trends" in args:
         from clipper import trends
         pb = trends.run_once(cfg)

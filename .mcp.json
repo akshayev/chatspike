@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "chatspike": {
+      "type": "stdio",
+      "command": ".venv/bin/python",
+      "args": ["tui/mcp_server.py"]
+    }
+  }
+}

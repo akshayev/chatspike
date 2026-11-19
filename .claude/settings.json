@@ -1,0 +1,38 @@
+{
+  "enabledMcpjsonServers": ["chatspike"],
+  "permissions": {
+    "allow": [
+      "mcp__chatspike__get_status",
+      "mcp__chatspike__list_clips",
+      "mcp__chatspike__clip_detail",
+      "mcp__chatspike__campaign_stats",
+      "mcp__chatspike__ai_usage",
+      "mcp__chatspike__read_vault",
+      "mcp__chatspike__tail_log",
+      "mcp__chatspike__request_action",
+      "Bash(python3 run.py --status)",
+      "Bash(python3 run.py --ai-usage)",
+      "Bash(python3 run.py --actions --list)",
+      "Bash(bash check.sh)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(tail *)"
+    ],
+    "ask": [
+      "Bash(python3 run.py --approve *)",
+      "Bash(python3 run.py --reject *)",
+      "Bash(python3 run.py --publish *)",
+      "Bash(python3 run.py --submit *)",
+      "Bash(python3 run.py --ig *)",
+      "Bash(python3 run.py --ig-submit *)",
+      "Bash(git push *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(cat .env*)",
+      "Bash(rm -rf *)"
+    ]
+  }
+}
