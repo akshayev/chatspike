@@ -10,4 +10,6 @@ if ! curl -s http://127.0.0.1:9222/json/version >/dev/null; then
   nohup node open-browser.js https://studio.youtube.com >logs/browser.log 2>&1 &
   sleep 6
 fi
+# YouTube chat reader (pip package, installed once)
+[ -x .venv/bin/yt-dlp ] || pip install -q yt-dlp
 python3 run.py "$@"

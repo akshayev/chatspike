@@ -23,7 +23,8 @@
         "type": "pool",
         "min_views": 750000,
         "min_clip_views": 1000
-      }
+      },
+      "quality": "720p60,720p,best"
     },
     {
       "key": "dylan",
@@ -39,7 +40,7 @@
         "#shorts"
       ],
       "cta": "Watch Dylan Page's GTA 6 marathon live on YouTube",
-      "min_msgs": 20,
+      "min_msgs": 8,
       "required_tags": [
         "#DylanPage"
       ],
@@ -120,7 +121,7 @@
         "#shorts"
       ],
       "cta": "Subscribe to Tomo on YouTube @Tomovids",
-      "min_msgs": 8,
+      "min_msgs": 5,
       "required_tags": [
         "#tomovids",
         "#gta6",

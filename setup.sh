@@ -11,7 +11,7 @@ fi
 python3 -m venv .venv
 . .venv/bin/activate
 pip install --upgrade pip
-pip install streamlink faster-whisper chat-downloader discord.py pytrends textual mcp
+pip install streamlink faster-whisper chat-downloader discord.py pytrends textual mcp yt-dlp
 
 # Optional GPU speed-up for captions on NVIDIA (safe to fail)
 pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*" || true
