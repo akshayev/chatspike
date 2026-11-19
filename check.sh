@@ -6,7 +6,7 @@ export LD_LIBRARY_PATH="$(python3 -c 'import site,glob,os;print(":".join(sorted(
 ok(){ echo "  [OK]   $*"; }; bad(){ echo "  [FAIL] $*"; }
 
 echo "1) Whisper on GPU (first run downloads small.en, ~500 MB)"
-python3 - <<'EOF' && ok "faster-whisper runs on CUDA" || bad "faster-whisper on CUDA failed (will fall back to CPU)"
+python3 - <<'EOF' && ok "faster-whisper runs on CUDA" || bad "faster-whisper on CUDA failed (CPU fallback). After a suspend, fix with: sudo rmmod nvidia_uvm && sudo modprobe nvidia_uvm"
 import numpy as np, time, sys
 sys.path.insert(0, ".")
 from clipper.gpu import preload_cuda
@@ -26,10 +26,23 @@ echo "3) Clipper browser (CDP :9222)"
 curl -s http://127.0.0.1:9222/json/version >/dev/null && ok "browser reachable" || bad "not running (run: node open-browser.js https://studio.youtube.com)"
 
 echo "4) Who is live right now"
-for ch in lacy clix bobby_vanriper; do
-  if streamlink --json "https://www.twitch.tv/$ch" 2>/dev/null | grep -q '"streams"'; then ok "twitch.tv/$ch is LIVE"; else echo "  [--]   twitch.tv/$ch offline"; fi
-done
-if streamlink --json "https://www.youtube.com/@Tomovids/live" 2>/dev/null | grep -q '"streams"'; then ok "Tomo (YouTube) is LIVE"; else echo "  [--]   Tomo (YouTube) offline"; fi
+# every channel in config.json, in priority order (checked in parallel)
+python3 - <<'PY'
+import json, subprocess, concurrent.futures as cf
+chs = json.load(open("config.json"))["channels"]
+def url(c): return c["source"] if c["source"].startswith("http") else f"https://www.twitch.tv/{c['source']}"
+def live(c):
+    try:
+        r = subprocess.run(["streamlink", "--json", url(c)], capture_output=True, text=True, timeout=40)
+        return '"streams"' in r.stdout
+    except Exception:
+        return False
+with cf.ThreadPoolExecutor(8) as ex:
+    res = list(ex.map(live, chs))
+for i, (c, on) in enumerate(zip(chs, res), 1):
+    tag = "[OK]  " if on else "[--]  "
+    print(f"  {tag} {i}. {c['name']:<15} {'LIVE' if on else 'offline':<8} {url(c)}" + ("" if c.get("enabled", True) else "  (disabled)"))
+PY
 
 echo "5) Resources"
 free -h | awk '/Mem/{print "     RAM available: "$7}'
