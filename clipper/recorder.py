@@ -66,6 +66,8 @@ class Recorder:
                                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, start_new_session=True)
         self.sl = self.ff = self.proc   # kept for older callers
+        self.pidfile = ROOT / "logs" / f"rec-{self.ch['key']}.pid"
+        self.pidfile.write_text(str(self.proc.pid))
         self.running = True
         threading.Thread(target=self._janitor, daemon=True).start()
 
@@ -92,6 +94,8 @@ class Recorder:
                 os.killpg(self.proc.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
+        if getattr(self, "pidfile", None):
+            self.pidfile.unlink(missing_ok=True)
 
     def _media_len(self, f):
         try:
@@ -162,3 +166,20 @@ class Recorder:
                         "-c:a", "aac", "-b:a", "192k", str(dest)], check=True)
         lst.unlink(missing_ok=True)
         return dest
+
+
+def kill_orphans():
+    """Recorder pipelines run detached, so a crash or Ctrl+C can leave them running.
+    Kill any left over from a previous run (they would write duplicate segments)."""
+    n = 0
+    for pf in (ROOT / "logs").glob("rec-*.pid"):
+        try:
+            pgid = int(pf.read_text().strip())
+            os.killpg(pgid, signal.SIGTERM)
+            n += 1
+        except (ValueError, ProcessLookupError, PermissionError):
+            pass
+        pf.unlink(missing_ok=True)
+    if n:
+        L.warning("stopped %d leftover recorder pipeline(s) from a previous run", n)
+    return n

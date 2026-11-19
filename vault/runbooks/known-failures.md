@@ -15,3 +15,5 @@
 | submit says failed but CR shows "Clip submitted" | success screen keeps the picker element in the DOM | detect "Clip submitted" text |
 | clip deselected in CR picker | newest upload is PRE-selected (aria-pressed=true); clicking toggles it off | only click when not selected; tick the hidden checkbox with check() |
 | `Cannot transfer files larger than 50Mb to a browser not co-located with the server` | NVENC final encode had no bitrate cap (-b:v 0) so clips exceeded 50 MB | final encode capped at 6M/8M max; `Publisher.fit_size` re-encodes anything over 45 MB before upload |
+| capture health > 1.0 (e.g. 1.61) and `could not find sync byte` | detached recorder pipelines survived Ctrl+C, so two recorders wrote into one folder | pid files in logs/rec-*.pid; `recorder.kill_orphans()` at startup; scheduler.stop_all() on Ctrl+C / exit |
+| Instagram: `element is not visible` at Share | hidden duplicate "Share" elements on the page | click the first VISIBLE match (same for Next) |

@@ -14,9 +14,16 @@ let step = 0;
 const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', `ig-${item.id}-${++step}-${n}.png`) }).catch(() => {});
 
 async function clickText(page, re, timeout = 15000) {
-  const loc = page.getByRole('button', { name: re }).or(page.getByText(re)).first();
-  await loc.waitFor({ state: 'visible', timeout });
-  await loc.click();
+  // click the first VISIBLE element whose text matches (Instagram keeps hidden duplicates)
+  const loc = page.getByText(re);
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    for (let i = 0; i < await loc.count(); i++) {
+      if (await loc.nth(i).isVisible()) { await loc.nth(i).click(); return; }
+    }
+    await page.waitForTimeout(300);
+  }
+  throw new Error('no visible element matching ' + re);
 }
 
 (async () => {
@@ -92,7 +99,14 @@ async function clickText(page, re, timeout = 15000) {
     }
 
     // 6) Share and wait for confirmation
-    await page.getByRole('button', { name: /^Share$/ }).or(page.getByText(/^Share$/)).first().click({ timeout: 15000 });
+    // Instagram has hidden elements labelled "Share" too: click the first VISIBLE one
+    const shares = page.getByText(/^Share$/);
+    let clicked = false;
+    for (let i = 0; i < (await shares.count()) && !clicked; i++) {
+      const el = shares.nth(i);
+      if (await el.isVisible()) { await el.click(); clicked = true; }
+    }
+    if (!clicked) throw new Error('no visible Share button');
     await page.getByText(/(reel|post) has been shared|Your reel has been shared/i).first().waitFor({ timeout: 300000 });
     await shot(page, 'shared');
     await page.keyboard.press('Escape').catch(() => {});

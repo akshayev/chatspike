@@ -97,5 +97,9 @@ class Scheduler(threading.Thread):
                 L.exception("scheduler tick failed: %s", e)
             time.sleep(self.poll)
 
+    def stop_all(self):
+        for k in list(self.sessions):
+            self._stop(k, "shutting down")
+
     def status(self):
         return {k: {"since": s.started, "health": None} for k, s in self.sessions.items()}

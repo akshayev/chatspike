@@ -109,7 +109,13 @@ def main():
     rq = queue.Queue()
     threading.Thread(target=pipeline.render_worker, args=(cfg, rq, {c["key"]: c for c in chans}),
                      daemon=True, name="render").start()
-    Scheduler(chans, cfg, lambda ch, rec, ev: rq.put((ch, rec, ev))).start()
+    from clipper import recorder
+    recorder.kill_orphans()
+    sched = Scheduler(chans, cfg, lambda ch, rec, ev: rq.put((ch, rec, ev)))
+    sched.start()
+    import atexit, signal as _sig
+    atexit.register(sched.stop_all)
+    _sig.signal(_sig.SIGTERM, lambda *a: sys.exit(0))   # run atexit on kill too
     yt = pipeline.Publisher(cfg)
     yt.start()
     pipeline.InstagramPublisher(cfg, yt).start()
@@ -123,6 +129,7 @@ def main():
         while True:
             time.sleep(3600)
     except KeyboardInterrupt:
+        sched.stop_all()
         L.info("bye")
 
 
