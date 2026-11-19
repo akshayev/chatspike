@@ -2,6 +2,55 @@
   "_note": "Channels are in priority order (first = highest). required_tags must appear in title/description. See vault/campaigns/ for each campaign's rules.",
   "channels": [
     {
+      "key": "kai",
+      "enabled": true,
+      "platform": "twitch",
+      "source": "kaicenat",
+      "name": "Kai Cenat",
+      "campaign_id": "1d2bcb00-c904-415f-aa82-f95b96baad86",
+      "hashtags": [
+        "#KaiCenat",
+        "#GTA6",
+        "#GTAVI",
+        "#shorts"
+      ],
+      "cta": "Watch Kai Cenat live on Twitch",
+      "min_msgs": 150,
+      "required_tags": [
+        "#KaiCenat"
+      ],
+      "payout": {
+        "type": "pool",
+        "min_views": 750000,
+        "min_clip_views": 1000
+      }
+    },
+    {
+      "key": "dylan",
+      "enabled": true,
+      "platform": "youtube",
+      "source": "https://www.youtube.com/@dylan.page./live",
+      "name": "Dylan Page",
+      "campaign_id": "39753a1a-f1f3-491b-a8f6-0cfee0af0c97",
+      "hashtags": [
+        "#DylanPage",
+        "#GTA6",
+        "#GTAVI",
+        "#shorts"
+      ],
+      "cta": "Watch Dylan Page's GTA 6 marathon live on YouTube",
+      "min_msgs": 20,
+      "required_tags": [
+        "#DylanPage"
+      ],
+      "payout": {
+        "type": "cpm",
+        "rate": 1.0,
+        "min_views": 10000,
+        "max": 250
+      }
+    },
+    {
       "key": "lacy",
       "enabled": true,
       "platform": "twitch",
@@ -29,6 +78,60 @@
       "payout": {
         "type": "pool",
         "min_views": 750000
+      }
+    },
+    {
+      "key": "asianjeff",
+      "enabled": true,
+      "platform": "twitch",
+      "source": "asianjeff",
+      "name": "AsianJeff",
+      "campaign_id": "bbd3a963-9a23-457c-bc15-6697971d9902",
+      "hashtags": [
+        "#AsianJeff",
+        "#GTA6",
+        "#GTAVI",
+        "#shorts"
+      ],
+      "cta": "Watch AsianJeff live on Twitch",
+      "min_msgs": 20,
+      "required_tags": [
+        "#AsianJeff"
+      ],
+      "payout": {
+        "type": "cpm",
+        "rate": 1.0,
+        "min_views": 10000,
+        "max": 300
+      },
+      "ends": "2026-11-26"
+    },
+    {
+      "key": "tomo",
+      "enabled": true,
+      "platform": "youtube",
+      "source": "https://www.youtube.com/@Tomovids/live",
+      "name": "Tomo",
+      "campaign_id": "df6de26f-86ec-4782-b818-1fc8053b99a4",
+      "hashtags": [
+        "#tomovids",
+        "#gta6",
+        "#GTAVI",
+        "#shorts"
+      ],
+      "cta": "Subscribe to Tomo on YouTube @Tomovids",
+      "min_msgs": 8,
+      "required_tags": [
+        "#tomovids",
+        "#gta6",
+        "@Tomovids"
+      ],
+      "payout": {
+        "type": "cpm",
+        "rate": 1.5,
+        "min_views": 2334,
+        "max": 150,
+        "_checked": "2026-11-19 discover API: rate 150c/1K, minPayout $3.50"
       }
     },
     {
@@ -84,33 +187,6 @@
         "rate": 1.0,
         "min_views": 1950,
         "max": 250
-      }
-    },
-    {
-      "key": "tomo",
-      "enabled": true,
-      "platform": "youtube",
-      "source": "https://www.youtube.com/@Tomovids/live",
-      "name": "Tomo",
-      "campaign_id": "df6de26f-86ec-4782-b818-1fc8053b99a4",
-      "hashtags": [
-        "#tomovids",
-        "#gta6",
-        "#GTAVI",
-        "#shorts"
-      ],
-      "cta": "Subscribe to Tomo on YouTube @Tomovids",
-      "min_msgs": 8,
-      "required_tags": [
-        "#tomovids",
-        "#gta6",
-        "@Tomovids"
-      ],
-      "payout": {
-        "type": "cpm",
-        "rate": 2.0,
-        "min_views": 2000,
-        "max": 150
       }
     }
   ],
