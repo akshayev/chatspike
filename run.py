@@ -76,6 +76,15 @@ def main():
     if not chans:
         sys.exit("no channels selected")
 
+    # refuse to run twice: two copies record into the same folders and corrupt each other
+    import fcntl
+    from clipper.common import ROOT
+    lock = open(ROOT / "logs" / "run.lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        sys.exit("chatspike is already running (another terminal?). Stop it first: pkill -f run.py")
+
     from clipper.scheduler import Scheduler
     from clipper import sysinfo
     notify.start()
