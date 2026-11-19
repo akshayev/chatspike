@@ -54,7 +54,8 @@ def is_live(ch, cfg=None):
         meta = data.get("metadata") or {}
         ok = on_topic(ch, meta, cfg)
         prev = last_meta.get(ch["key"])
-        last_meta[ch["key"]] = {"category": meta.get("category"), "title": meta.get("title"), "on_topic": ok}
+        last_meta[ch["key"]] = {"category": meta.get("category"), "title": meta.get("title"), "on_topic": ok,
+                                "id": meta.get("id")}
         if not ok and (not prev or prev.get("on_topic") or prev.get("category") != meta.get("category")):
             L.info("[%s] live but not GTA 6 (category %r) - not recording", ch["key"], meta.get("category"))
         return ok

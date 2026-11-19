@@ -1,7 +1,7 @@
 """Live chat readers. Each yields (epoch_seconds, user, text).
 Twitch: anonymous IRC (no account, no token).
 YouTube: via the optional `chat-downloader` package."""
-import socket, time, re
+import json, re, socket, subprocess, time
 from .common import log
 
 L = log("chat")
@@ -36,6 +36,22 @@ def twitch_chat(channel, stop):
             time.sleep(5)
 
 
+def _youtube_watch_url(url):
+    """chat-downloader can't resolve some handle /live URLs (e.g. @dylan.page./live: 'no videos of the
+    requested type'). streamlink can, and its metadata id is the live video id -> use watch?v=ID."""
+    if "watch?v=" in url:
+        return url
+    from . import recorder
+    try:
+        out = subprocess.run([recorder.STREAMLINK, "--json", url], capture_output=True, text=True, timeout=60).stdout
+        vid = (json.loads(out or "{}").get("metadata") or {}).get("id")
+        if vid:
+            return f"https://www.youtube.com/watch?v={vid}"
+    except Exception as e:
+        L.warning("could not resolve live video id for %s: %s", url, e)
+    return url
+
+
 def youtube_chat(url, stop):
     try:
         from chat_downloader import ChatDownloader
@@ -44,8 +60,9 @@ def youtube_chat(url, stop):
         return
     while not stop.is_set():
         try:
-            chat = ChatDownloader().get_chat(url, message_types=["text_message"])
-            L.info("youtube chat connected: %s", url)
+            target = _youtube_watch_url(url)      # re-resolved each retry: the live video id can change
+            chat = ChatDownloader().get_chat(target, message_types=["text_message"])
+            L.info("youtube chat connected: %s", target)
             for msg in chat:
                 if stop.is_set():
                     return

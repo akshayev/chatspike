@@ -26,3 +26,4 @@
 | "Ignoring N permissions.allow entries … not been trusted" | folder not trusted by Claude Code yet | run `claude` here once and accept the trust dialog |
 | `CUDA failed with error no CUDA-capable device is detected` (nvidia-smi still works) | NVIDIA unified-memory module lost after laptop suspend | `sudo rmmod nvidia_uvm && sudo modprobe nvidia_uvm` (or reboot), then `bash check.sh` |
 | clips of a streamer sleeping / Just Chatting submitted to a GTA campaign | streamer live but not playing GTA 6 (campaigns pay only for GTA 6 footage) | `recorder.on_topic`: Twitch category must match GTA VI, YouTube title must mention GTA 6; checked every poll, recording stops when they switch |
+| youtube chat: `This channel has no videos of the requested type (live).` | chat-downloader cannot resolve some handle /live URLs (e.g. @dylan.page./live) | resolve the live video id with streamlink --json metadata, read chat from watch?v=ID |
