@@ -15,12 +15,15 @@ Live-stream auto-clipper for the GTA 6 launch. It records Twitch and YouTube str
 - `data/clipper.db`: SQLite source of truth (tables: clips, events, ai_calls)
 - `vault/`: Obsidian vault with campaigns, decisions, runbooks, playbook and learnings
 - `config.json`: channels in priority order, with thresholds and limits
+- `clipper/ai.py`: AI router (local Ollama → Gemini free → Claude). **Claude is only used for borderline-clip verdicts and the trend playbook**, capped by `ai.claude_daily_calls`. Check usage with `run.py --ai-usage`.
+- `clipper/trends.py`: trend scout → `vault/playbook/current.json` (read by `hook.py` when writing hooks)
 
 ## Commands
 - `bash check.sh`: health check (CUDA, Ollama, browser, who is live)
 - `./start.sh [--no-upload] [channels…]`: run
 - `python3 run.py --status | --approve ID | --reject ID | --publish ID | --submit ID`
 - `bash diag_capture.sh <channel> 60 A`: measure capture health
+- `python3 run.py --stats | --trends | --ai-usage | --ig ID [--dry] | --ig-submit ID`
 
 ## Machine
 Laptop: Ubuntu, i5-13450HX, 14 GB RAM (often about 5 GB free), RTX 3050 6 GB, Python 3.14 venv. The code is developed in the cloud and pushed to GitHub (akshayev/chatspike); the laptop runs `git pull`.

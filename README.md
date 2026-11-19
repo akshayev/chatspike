@@ -64,6 +64,8 @@ bash check.sh                                     # GPU, LLM, browser, who is li
 | `python3 run.py --submit <clip-id>` | Submit an uploaded clip to Content Rewards |
 | `python3 run.py --stats` | Views per campaign, pool progress, estimated earnings (from Content Rewards) |
 | `python3 run.py --ig <clip-id> [--dry]` | Post a clip as an Instagram Reel (`--dry` stops before Share) |
+| `python3 run.py --trends` | Run the GTA 6 trend scout now and print the hook playbook |
+| `python3 run.py --ai-usage` | AI calls per tier in the last 24 h |
 
 ## Configuration
 
@@ -93,8 +95,8 @@ Runtime folders `rec/`, `clips/`, `queue/`, `logs/` and `shots/` are git-ignored
 
 - [x] **M0 · MVP:** record, detect, cut, caption, render, upload, submit
 - [x] **M1 · Safe autopilot:** SQLite, safety gate, Discord approval bot, 2-channel priority scheduler, RAM guard, NVENC, vault + CLAUDE.md
-- [ ] **M2 · Reach:** Instagram Reels, thumbnail/cover maker, stats and earnings tracker
-- [ ] **M3 · Smart picks:** trend scout, local-LLM → Gemini → Claude router, Obsidian vault + Context7 memory
+- [x] **M2 · Reach:** Instagram Reels, thumbnail/cover maker, stats and earnings tracker
+- [x] **M3 · Smart picks:** trend scout, local-LLM → Gemini → Claude router, AI hooks + 4-question scoring, Claude second opinion on borderline clips
 - [ ] **M4 · Terminal app:** Textual dashboard with a Claude Agent SDK panel
 
 ## Responsible use

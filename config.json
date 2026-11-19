@@ -153,10 +153,6 @@
     "rec_dir": "rec",
     "clips_dir": "clips"
   },
-  "llm": {
-    "_note": "Optional. If ANTHROPIC_API_KEY is set, Claude writes the hook title and scores virality. Otherwise templates + chat-based scoring are used.",
-    "model": "claude-haiku-5-5"
-  },
   "scheduler": {
     "max_live": 2,
     "ram_pause_gb": 1.5,
@@ -170,5 +166,22 @@
     "max_seconds": 60,
     "max_age_minutes": 90,
     "dedupe_seconds": 60
+  },
+  "ai": {
+    "enabled": true,
+    "local_model": "qwen2.5:3b",
+    "ollama_url": "http://127.0.0.1:11434",
+    "keep_alive": "2m",
+    "local_timeout": 90,
+    "local_min_ram_gb": 1.0,
+    "temperature": 0.6,
+    "gemini_model": "gemini-3.5-flash-lite",
+    "claude_model": "claude-haiku-5-5",
+    "claude_daily_calls": 40,
+    "claude_max_tokens": 700,
+    "claude_for_borderline": true,
+    "claude_for_playbook": true,
+    "trend_every_hours": 3,
+    "_note": "Router order: local Ollama -> Gemini free tier -> Claude (only for borderline verdicts and the playbook). Keys in .env."
   }
 }

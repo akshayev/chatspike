@@ -113,7 +113,12 @@ def review(item):
     reasons = "; ".join(item["gate"]["soft"]) or f"score {item.get('score')} below auto-post bar"
     text = (f"**Review:** {item['title']}\n"
             f"Channel **{item['channel']}** - score **{item.get('score')}** - {item.get('duration', 0):.0f}s\n"
-            f"Why: {reasons}\n`{item['id']}`")
+            f"Why: {reasons}\n"
+            + (f"Claude: **{'post' if item['claude'].get('post') else 'skip'}** "
+               f"({item['claude'].get('confidence')}%, risk {item['claude'].get('risk')}) - {item['claude'].get('reason')}\n"
+               if item.get("claude") else "")
+            + (f"AI: {item.get('verdict')}\n" if item.get("ai_tier") else "")
+            + f"`{item['id']}`")
 
     async def go():
         view = discord.ui.View(timeout=None)

@@ -6,6 +6,8 @@
   python3 run.py --no-upload      clip + gate only, post nothing
   python3 run.py --status         recent clips and what happened to them
   python3 run.py --stats          views per campaign + pool progress / estimated earnings (from Content Rewards)
+  python3 run.py --trends         run the GTA 6 trend scout now and print the new hook playbook
+  python3 run.py --ai-usage       AI calls per tier in the last 24 h (local / free / claude)
   python3 run.py --approve ID     approve a clip waiting for review (posts at the next free slot)
   python3 run.py --reject ID      reject a clip waiting for review
   python3 run.py --publish ID     upload + submit one clip now (ignores the gate and rate limits)
@@ -14,7 +16,7 @@
   python3 run.py --ig-submit ID   submit an already-posted Reel to its campaign
   python3 run.py --mark ID STATUS fix a record by hand (e.g. submitted after a manual submit)
 """
-import queue, sys, threading, time
+import json, queue, sys, threading, time
 from clipper.common import load_config, log
 from clipper import db, notify, pipeline
 
@@ -50,6 +52,15 @@ def main():
 
     if "--status" in args:
         return status()
+    if "--trends" in args:
+        from clipper import trends
+        pb = trends.run_once(cfg)
+        print(json.dumps(pb, indent=2, ensure_ascii=False) if pb else "no playbook (no AI tier answered)")
+        return
+    if "--ai-usage" in args:
+        from clipper import ai
+        print(json.dumps(ai.usage(24), indent=2))
+        return
     if "--stats" in args:
         from clipper import stats
         if not pipeline.Publisher(cfg).browser_ready():
@@ -130,6 +141,8 @@ def main():
     pipeline.InstagramPublisher(cfg, yt).start()
     from clipper.stats import StatsTracker
     StatsTracker(cfg).start()
+    from clipper.trends import TrendScout
+    TrendScout(cfg).start()
     L.info("priority: %s | max live %d | auto_upload=%s | discord=%s",
            " > ".join(c["key"] for c in chans), cfg.get("scheduler", {}).get("max_live", 2),
            cfg["publish"]["auto_upload"], "on" if notify.enabled() else "off")
