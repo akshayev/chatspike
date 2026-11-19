@@ -44,15 +44,17 @@ class Scheduler(threading.Thread):
         self.poll = s.get("poll_seconds", 60)
         self.sessions = {}            # key -> Session
         self.live = {}
-        self.pool = ThreadPoolExecutor(max_workers=4)
+        self.pool = ThreadPoolExecutor(max_workers=8)
 
     def _live_map(self):
-        futs = {c["key"]: self.pool.submit(recorder.is_live, c) for c in self.chans
-                if c["key"] not in self.sessions or not self.sessions[c["key"]].alive()}
+        # every channel is checked each poll, recording ones too: a streamer who switches from GTA 6 to
+        # Just Chatting / sleep mid-stream must stop being recorded (campaigns pay only for GTA 6)
+        futs = {c["key"]: self.pool.submit(recorder.is_live, c, self.cfg) for c in self.chans}
         live = {k: f.result() for k, f in futs.items()}
         for k, s in self.sessions.items():
-            if s.alive():
-                live[k] = True
+            off_topic = (recorder.last_meta.get(k) or {}).get("on_topic") is False
+            if s.alive() and not live.get(k) and not off_topic:
+                live[k] = True        # check failed / blip while recording fine: keep going
         return live
 
     def _stop(self, key, why):
@@ -113,7 +115,9 @@ class Scheduler(threading.Thread):
                            "recording": c["key"] in self.sessions,
                            "since": self.sessions[c["key"]].started if c["key"] in self.sessions else None,
                            "health": getattr(self.sessions[c["key"]].rec, "last_health", None) if c["key"] in self.sessions else None,
-                           "paused": c["key"] in paused}
+                           "paused": c["key"] in paused,
+                           "category": (recorder.last_meta.get(c["key"]) or {}).get("category"),
+                           "off_topic": (recorder.last_meta.get(c["key"]) or {}).get("on_topic") is False}
                 for c in self.chans}
 
 

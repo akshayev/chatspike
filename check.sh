@@ -31,17 +31,27 @@ python3 - <<'PY'
 import json, subprocess, concurrent.futures as cf
 chs = json.load(open("config.json"))["channels"]
 def url(c): return c["source"] if c["source"].startswith("http") else f"https://www.twitch.tv/{c['source']}"
+import sys; sys.path.insert(0, ".")
+from clipper.recorder import on_topic
 def live(c):
     try:
-        r = subprocess.run(["streamlink", "--json", url(c)], capture_output=True, text=True, timeout=40)
-        return '"streams"' in r.stdout
+        j = json.loads(subprocess.run(["streamlink", "--json", url(c)], capture_output=True, text=True, timeout=40).stdout or "{}")
     except Exception:
-        return False
+        return None
+    if not j.get("streams"):
+        return None
+    m = j.get("metadata") or {}
+    return (on_topic(c, m), m.get("category") or "?")
 with cf.ThreadPoolExecutor(8) as ex:
     res = list(ex.map(live, chs))
 for i, (c, on) in enumerate(zip(chs, res), 1):
-    tag = "[OK]  " if on else "[--]  "
-    print(f"  {tag} {i}. {c['name']:<15} {'LIVE' if on else 'offline':<8} {url(c)}" + ("" if c.get("enabled", True) else "  (disabled)"))
+    if not on:
+        tag, st = "[--]  ", "offline"
+    elif on[0]:
+        tag, st = "[OK]  ", f"LIVE, GTA 6 ({on[1]}) - will record"
+    else:
+        tag, st = "[skip]", f"LIVE but not GTA 6 ({on[1]}) - skipped"
+    print(f"  {tag} {i}. {c['name']:<15} {st}" + ("" if c.get("enabled", True) else "  (disabled)"))
 PY
 
 echo "5) Resources"

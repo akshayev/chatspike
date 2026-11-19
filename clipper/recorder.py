@@ -19,15 +19,45 @@ def stream_url(ch):
     return ch["source"]
 
 
-def is_live(ch):
-    """Ask streamlink whether the channel has a playable stream right now."""
+GTA_RE = r"grand theft auto (vi|6)|\bgta ?(vi|6)\b"
+last_meta = {}   # key -> streamlink metadata from the last live check (category, title)
+
+
+def on_topic(ch, meta, cfg=None):
+    """True if the stream is GTA 6 right now. Every campaign pays only for GTA 6 footage, so a streamer
+    who is live but sleeping / Just Chatting / playing something else must not be recorded.
+    Twitch: the category must match. YouTube has no reliable category: the title must mention GTA 6.
+    Unknown metadata -> allowed (logged), so a plugin change can't silently stop all recording."""
+    import re
+    pat = ch.get("require_topic", (cfg or {}).get("detect", {}).get("require_topic", GTA_RE))
+    if not pat:
+        return True
+    cat, title = (meta.get("category") or ""), (meta.get("title") or "")
+    if not cat and not title:
+        return True
+    if ch["platform"] == "twitch" and cat:
+        return bool(re.search(pat, cat, re.I))
+    return bool(re.search(pat, cat + " " + title, re.I))
+
+
+def is_live(ch, cfg=None):
+    """Live AND on topic (GTA 6). Uses streamlink --json (streams + metadata)."""
     try:
         out = subprocess.run(
             [STREAMLINK, "--json", stream_url(ch)],
             capture_output=True, text=True, timeout=60,
         ).stdout
         data = json.loads(out or "{}")
-        return bool(data.get("streams"))
+        if not data.get("streams"):
+            last_meta.pop(ch["key"], None)
+            return False
+        meta = data.get("metadata") or {}
+        ok = on_topic(ch, meta, cfg)
+        prev = last_meta.get(ch["key"])
+        last_meta[ch["key"]] = {"category": meta.get("category"), "title": meta.get("title"), "on_topic": ok}
+        if not ok and (not prev or prev.get("on_topic") or prev.get("category") != meta.get("category")):
+            L.info("[%s] live but not GTA 6 (category %r) - not recording", ch["key"], meta.get("category"))
+        return ok
     except Exception as e:
         L.warning("live check failed for %s: %s", ch["key"], e)
         return False
