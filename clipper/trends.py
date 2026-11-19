@@ -44,7 +44,7 @@ def reddit_hot():
         L.info("reddit json failed (%s) - trying RSS", e)
     try:
         import xml.etree.ElementTree as ET
-        req = urllib.request.Request("https://www.reddit.com/r/GTA6/hot/.rss?limit=40", headers={
+        req = urllib.request.Request("https://www.reddit.com/r/GTA6/.rss?limit=40", headers={
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) chatspike-trend-scout/1.0"})
         root = ET.fromstring(urllib.request.urlopen(req, timeout=20).read())
         ns = {"a": "http://www.w3.org/2005/Atom"}
@@ -56,30 +56,62 @@ def reddit_hot():
 
 # Terms that would make a gameplay-clip title misleading (Reach rejects misleading titles)
 OFF_TOPIC = ("trailer", "pre order", "preorder", "pre-order", "release date", "price", "leak", "download",
-             "free", "review", "map size", "pc port", "delay", "countdown", "announcement", "news")
+             "free", "review", "map size", "pc port", "delay", "countdown", "announcement", "news", "update",
+             "voice actor", "ps5", "xbox", "pc ", "mod", "cheat", "money glitch")
+# Never steer titles toward sexual, hateful or drama framing (brand-unsafe, gets clips rejected)
+UNSAFE = ("sex", "kiss", "nude", "naked", "strip", "porn", "hooker", "onlyfans", "boob", "thirst", "hot girl",
+          "racist", "slur", "drama", "beef", "exposed", "cancel", "fight irl", "banned")
 
 
-def sanitize(pb):
-    """Keep the playbook honest and usable: clip-relevant terms only, short punchy hooks."""
+def _ok(t):
+    t = (t or "").lower()
+    return not any(w in t for w in OFF_TOPIC) and not any(w in t for w in UNSAFE)
+
+
+def grounded_terms(signals, limit=15):
+    """Search phrases that really appear in the data (autocomplete + Google Trends rising), most common first."""
+    from collections import Counter
+    c = Counter()
+    for seed, sugg in signals.get("youtube_suggest", {}).items():
+        for i, q in enumerate(sugg):
+            c[q.lower().strip()] += max(1, 10 - i)          # higher-ranked suggestions weigh more
+    for r in signals.get("google_trends", {}).get("rising", []):
+        q = str(r.get("query", "")).lower().strip()
+        if q:
+            c[q] += 8
+    return [q for q, _ in c.most_common(80) if _ok(q) and "gta" in q][:limit]
+
+
+def sanitize(pb, signals=None):
+    """Keep the playbook grounded and safe: only terms found in real signals, no unsafe or
+    off-topic angles, hooks only as {N} templates (no invented events)."""
     import re
-    keep = lambda t: isinstance(t, str) and not any(w in t.lower() for w in OFF_TOPIC)
-    pb["hot_terms"] = [t for t in pb.get("hot_terms", []) if keep(t)][:15]
-    pb["title_patterns"] = [t for t in pb.get("title_patterns", []) if keep(t) and "{N}" in t][:6]
+    corpus = json.dumps(signals or {}).lower()
+    grounded = grounded_terms(signals or {})
+    model_terms = [t for t in pb.get("hot_terms", []) if isinstance(t, str) and _ok(t) and t.lower() in corpus]
+    seen, terms = set(), []
+    for t in grounded + model_terms:
+        if t.lower() not in seen:
+            seen.add(t.lower()); terms.append(t)
+    pb["hot_terms"] = terms[:15]
+    pb["title_patterns"] = [t for t in pb.get("title_patterns", []) if isinstance(t, str) and _ok(t) and "{N}" in t][:6]
     hooks = []
     for h in pb.get("hook_angles", []):
-        if not keep(h):
+        if not isinstance(h, str) or not _ok(h) or "{N}" not in h:
             continue
         h = re.sub(r"^(watch as|don't miss|check out|you won't believe)\s+", "", h.strip(), flags=re.I)
         h = re.sub(r"[!.]+$", "", h).strip()
         if len(h.split()) <= 7:
-            hooks.append(h.upper())
+            hooks.append(h.upper().replace("{N}", "{N}"))
     pb["hook_angles"] = hooks[:6]
-    pb["moments_to_favor"] = [m for m in pb.get("moments_to_favor", []) if keep(m)][:6]
-    avoid = pb.get("avoid", [])
-    for must in ("titles about trailers, pre-orders or news on gameplay clips", "exclamation-mark clickbait"):
+    pb["moments_to_favor"] = [m for m in pb.get("moments_to_favor", []) if isinstance(m, str) and _ok(m)][:6]
+    avoid = [a for a in pb.get("avoid", []) if isinstance(a, str)]
+    for must in ("titles about trailers, pre-orders, updates or news on gameplay clips",
+                 "sexual or suggestive framing", "exclamation-mark clickbait", "claims not shown in the clip"):
         if must not in avoid:
             avoid.append(must)
     pb["avoid"] = avoid[:10]
+    pb["summary"] = pb.get("summary", "") if _ok(pb.get("summary", "")) else "Trend summary withheld (unsafe or off-topic wording)."
     return pb
 
 
@@ -138,7 +170,9 @@ Top GTA 6 Twitch streams: {json.dumps(signals['twitch_top'][:15])[:1200]}
 Our recent clips by views: {json.dumps(top_clips[:15])[:1500]}
 
 The game is out and these are LIVE GAMEPLAY clips: never suggest trailer, pre-order, price, release, leak or news angles.
-Hooks are on-screen text: max 7 words, punchy, no "Watch as", no exclamation marks.
+Hooks are on-screen text templates: max 7 words, MUST contain {{N}} for the streamer, punchy, no "Watch as", no
+exclamation marks, and must not claim a specific event happened. Only use search terms that appear in the data above.
+Never suggest sexual, suggestive, hateful or drama angles.
 Return JSON only:
 {{"hot_terms": [10-15 short phrases people search right now that a clip title could honestly use],
   "title_patterns": [3-6 title templates with {{N}} for the streamer, e.g. "{{N}} vs the Vice City cops"],
@@ -150,7 +184,7 @@ Return JSON only:
     pb, tier = ai.ask_json(prompt, "playbook", tiers=tiers, cfg=cfg)
     if not pb:
         return None
-    pb = sanitize(pb)
+    pb = sanitize(pb, signals)
     pb["written_by"], pb["t"] = tier, time.time()
     PB_DIR.mkdir(parents=True, exist_ok=True)
     (PB_DIR / "current.json").write_text(json.dumps(pb, indent=2, ensure_ascii=False))

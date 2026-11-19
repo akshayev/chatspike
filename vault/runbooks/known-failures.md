@@ -20,3 +20,4 @@
 | Reel submit: "You don't have a linked Instagram account" | Instagram not linked in Content Rewards → Settings → Accounts | link it once; resubmit with `run.py --ig-submit ID` within 30 min of posting |
 | trends: `reddit failed: HTTP Error 403: Blocked` | Reddit blocks scripted JSON requests | fall back to the public RSS feed |
 | playbook suggests "trailer", "pre order", "review" terms | small local model drifts to off-topic search terms | `trends.sanitize()` drops off-topic terms (misleading titles get Reach rejections) and shortens hooks |
+| playbook invents or unsafe terms ("Sex in GTA6", "Mandy", "PS5 update") | 3B local model hallucinates trends | hot terms are now counted from real autocomplete/Trends data; model terms kept only if they appear in the data; UNSAFE + OFF_TOPIC block lists; hook angles must be {N} templates |
