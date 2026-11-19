@@ -57,7 +57,8 @@ def reddit_hot():
 # Terms that would make a gameplay-clip title misleading (Reach rejects misleading titles)
 OFF_TOPIC = ("trailer", "pre order", "preorder", "pre-order", "release date", "price", "leak", "download",
              "free", "review", "map size", "pc port", "delay", "countdown", "announcement", "news", "update",
-             "voice actor", "ps5", "xbox", "pc ", "mod", "cheat", "money glitch")
+             "voice actor", "ps5", "xbox", "pc ", "mod", "cheat", "money glitch", "early access", "tomorrow",
+             "launch time", "unlock time")
 # Never steer titles toward sexual, hateful or drama framing (brand-unsafe, gets clips rejected)
 UNSAFE = ("sex", "kiss", "nude", "naked", "strip", "porn", "hooker", "onlyfans", "boob", "thirst", "hot girl",
           "racist", "slur", "drama", "beef", "exposed", "cancel", "fight irl", "banned")
@@ -82,6 +83,27 @@ def grounded_terms(signals, limit=15):
     return [q for q, _ in c.most_common(80) if _ok(q) and "gta" in q][:limit]
 
 
+# Vetted title patterns and hook angles: honest, brand-safe, no specific claims.
+SAFE_PATTERNS = ["{N} Can't Believe This Happened In GTA 6", "Chat Lost It When {N} Did This In GTA 6",
+                 "{N}'s Funniest GTA 6 Moment So Far", "Nobody Expected This From {N} In GTA 6",
+                 "GTA 6 Did {N} So Dirty", "{N} vs Vice City"]
+SAFE_HOOKS = ["{N} DID NOT SEE THIS COMING", "CHAT LOST IT AT {N}", "GTA 6 VS {N}",
+              "WAIT FOR {N}'S REACTION", "{N} CAN'T STOP LAUGHING"]
+KNOWN_WORDS = {"gta", "vice", "city", "jason", "lucia", "leonida", "{n}", "chat", "cops", "police"}
+
+
+def _grounded_words(text, corpus):
+    """Every capitalised word (likely a name) must appear in the real signals or the known list."""
+    import re
+    for w in re.findall(r"[A-Za-zÀ-ÿ']+", text or ""):
+        if w[0].isupper() and w.lower() not in KNOWN_WORDS and w.lower() not in corpus and len(w) > 2 \
+                and w.lower() not in {"the", "and", "this", "that", "with", "funny", "moments", "moment", "best",
+                                      "can't", "did", "not", "see", "coming", "lost", "wait", "reaction",
+                                      "nobody", "expected", "from", "dirty", "happened", "believe", "so", "far"}:
+            return False
+    return True
+
+
 def sanitize(pb, signals=None):
     """Keep the playbook grounded and safe: only terms found in real signals, no unsafe or
     off-topic angles, hooks only as {N} templates (no invented events)."""
@@ -94,24 +116,34 @@ def sanitize(pb, signals=None):
         if t.lower() not in seen:
             seen.add(t.lower()); terms.append(t)
     pb["hot_terms"] = terms[:15]
-    pb["title_patterns"] = [t for t in pb.get("title_patterns", []) if isinstance(t, str) and _ok(t) and "{N}" in t][:6]
+    written_by_claude = pb.get("_tier") == "claude"
+    if not written_by_claude:   # small local models invent names/angles: use the vetted lists only
+        pb["title_patterns"], pb["hook_angles"], pb["moments_to_favor"] = list(SAFE_PATTERNS), list(SAFE_HOOKS), []
+        top = ", ".join(pb["hot_terms"][:6])
+        pb["summary"] = f"Top real searches right now: {top}." if top else "No trend data."
+    trusted = lambda t: t in SAFE_PATTERNS or t in SAFE_HOOKS     # vetted lists skip the name check
+    pb["title_patterns"] = [t for t in pb.get("title_patterns", []) if isinstance(t, str) and _ok(t) and "{N}" in t
+                            and (trusted(t) or _grounded_words(t, corpus))][:6] or list(SAFE_PATTERNS)
     hooks = []
     for h in pb.get("hook_angles", []):
-        if not isinstance(h, str) or not _ok(h) or "{N}" not in h:
+        if not isinstance(h, str) or not _ok(h) or "{N}" not in h or not (trusted(h) or _grounded_words(h, corpus)):
             continue
         h = re.sub(r"^(watch as|don't miss|check out|you won't believe)\s+", "", h.strip(), flags=re.I)
         h = re.sub(r"[!.]+$", "", h).strip()
         if len(h.split()) <= 7:
             hooks.append(h.upper().replace("{N}", "{N}"))
-    pb["hook_angles"] = hooks[:6]
-    pb["moments_to_favor"] = [m for m in pb.get("moments_to_favor", []) if isinstance(m, str) and _ok(m)][:6]
+    pb["hook_angles"] = hooks[:6] or list(SAFE_HOOKS)
+    pb["moments_to_favor"] = [m for m in pb.get("moments_to_favor", []) if isinstance(m, str) and _ok(m)
+                              and _grounded_words(m, corpus)][:6]
     avoid = [a for a in pb.get("avoid", []) if isinstance(a, str)]
     for must in ("titles about trailers, pre-orders, updates or news on gameplay clips",
                  "sexual or suggestive framing", "exclamation-mark clickbait", "claims not shown in the clip"):
         if must not in avoid:
             avoid.append(must)
     pb["avoid"] = avoid[:10]
-    pb["summary"] = pb.get("summary", "") if _ok(pb.get("summary", "")) else "Trend summary withheld (unsafe or off-topic wording)."
+    if written_by_claude and not (_ok(pb.get("summary", "")) and _grounded_words(pb.get("summary", ""), corpus)):
+        pb["summary"] = "Top real searches right now: " + ", ".join(pb["hot_terms"][:6]) + "."
+    pb.pop("_tier", None)
     return pb
 
 
@@ -184,6 +216,7 @@ Return JSON only:
     pb, tier = ai.ask_json(prompt, "playbook", tiers=tiers, cfg=cfg)
     if not pb:
         return None
+    pb["_tier"] = tier
     pb = sanitize(pb, signals)
     pb["written_by"], pb["t"] = tier, time.time()
     PB_DIR.mkdir(parents=True, exist_ok=True)
