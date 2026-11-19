@@ -122,6 +122,7 @@ class Recorder:
                 last_health = time.time()
                 self._surface_log()
                 h = self.health()
+                self.last_health = h
                 if h is not None:
                     (L.warning if h < 0.9 else L.info)("[%s] capture health %.2f (media/wall, 1.00 = no drops)", self.ch["key"], h)
             cutoff = time.time() - self.keep

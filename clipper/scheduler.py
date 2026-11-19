@@ -1,9 +1,9 @@
 """Decides which channels record. At most `max_live` channels at once, chosen by
 priority (order in config.json). A RAM guard stops new recordings when free
 memory is low and drops the lowest-priority channel when it gets critical."""
-import threading, time
+import json, threading, time
 from concurrent.futures import ThreadPoolExecutor
-from .common import log
+from .common import log, ROOT
 from . import recorder, chat, detector, sysinfo, notify
 
 L = log("sched")
@@ -43,6 +43,7 @@ class Scheduler(threading.Thread):
         self.ram_critical = s.get("ram_critical_gb", 1.0)
         self.poll = s.get("poll_seconds", 60)
         self.sessions = {}            # key -> Session
+        self.live = {}
         self.pool = ThreadPoolExecutor(max_workers=4)
 
     def _live_map(self):
@@ -65,7 +66,12 @@ class Scheduler(threading.Thread):
         for k in [k for k, s in self.sessions.items() if not s.alive()]:
             self._stop(k, "stream ended")
         live = self._live_map()
-        wanted = [c["key"] for c in self.chans if live.get(c["key"])][: self.max_live]
+        self.live = live
+        paused = set(control().get("paused", []))
+        wanted = [c["key"] for c in self.chans if live.get(c["key"]) and c["key"] not in paused][: self.max_live]
+        for k in list(self.sessions):
+            if k in paused:
+                self._stop(k, "paused from the dashboard")
         mem = sysinfo.mem_available_gb()
 
         # pre-empt lower-priority channels that are no longer in the wanted set
@@ -102,4 +108,29 @@ class Scheduler(threading.Thread):
             self._stop(k, "shutting down")
 
     def status(self):
-        return {k: {"since": s.started, "health": None} for k, s in self.sessions.items()}
+        paused = set(control().get("paused", []))
+        return {c["key"]: {"live": bool(getattr(self, "live", {}).get(c["key"])),
+                           "recording": c["key"] in self.sessions,
+                           "since": self.sessions[c["key"]].started if c["key"] in self.sessions else None,
+                           "health": getattr(self.sessions[c["key"]].rec, "last_health", None) if c["key"] in self.sessions else None,
+                           "paused": c["key"] in paused}
+                for c in self.chans}
+
+
+CONTROL = ROOT / "data" / "control.json"
+
+
+def control():
+    try:
+        return json.loads(CONTROL.read_text())
+    except Exception:
+        return {}
+
+
+def set_paused(key, paused):
+    c = control()
+    p = set(c.get("paused", []))
+    (p.add if paused else p.discard)(key)
+    c["paused"] = sorted(p)
+    CONTROL.parent.mkdir(parents=True, exist_ok=True)
+    CONTROL.write_text(json.dumps(c))

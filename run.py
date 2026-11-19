@@ -147,9 +147,18 @@ def main():
            " > ".join(c["key"] for c in chans), cfg.get("scheduler", {}).get("max_live", 2),
            cfg["publish"]["auto_upload"], "on" if notify.enabled() else "off")
     notify.alert(f"chatspike started - watching {', '.join(c['key'] for c in chans)}")
+    from clipper.common import ROOT, write_json
+    started = time.time()
     try:
-        while True:
-            time.sleep(3600)
+        while True:   # heartbeat for the terminal dashboard (tui/app.py)
+            v = sysinfo.vram()
+            write_json(ROOT / "logs" / "status.json", {
+                "t": time.time(), "started": started, "pid": __import__("os").getpid(),
+                "channels": sched.status(), "ram_free_gb": round(sysinfo.mem_available_gb(), 1),
+                "vram_mb": v, "disk_free_gb": round(sysinfo.disk_free_gb(ROOT), 1),
+                "auto_upload": cfg["publish"]["auto_upload"], "instagram": cfg["publish"].get("instagram", {}).get("enabled"),
+                "discord": notify.enabled()})
+            time.sleep(10)
     except KeyboardInterrupt:
         sched.stop_all()
         L.info("bye")

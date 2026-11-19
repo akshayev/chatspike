@@ -43,3 +43,18 @@ def video_args(quality="final", cfg=None):
     if quality == "cut":
         return ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-maxrate", "16M", "-bufsize", "24M"]
     return ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-maxrate", "8M", "-bufsize", "12M"]
+
+
+def vram():
+    """(used_mb, total_mb) from nvidia-smi, or None."""
+    try:
+        out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=5).stdout.strip().split(",")
+        return int(out[0]), int(out[1])
+    except Exception:
+        return None
+
+
+def disk_free_gb(path="."):
+    import shutil
+    return shutil.disk_usage(path).free / 2**30

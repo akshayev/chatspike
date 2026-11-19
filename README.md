@@ -56,6 +56,7 @@ bash check.sh                                     # GPU, LLM, browser, who is li
 | Command | What it does |
 | --- | --- |
 | `./start.sh lacy clix` | Watch only these channel keys |
+| `./tui.sh` | Terminal dashboard: live channels, review queue (a/r/p), posted clips, Claude operator chat |
 | `./start.sh --no-upload` | Clip only and post nothing |
 | `python3 run.py --publish <clip-id>` | Upload and submit one queued clip |
 | `bash check.sh` | Health check: CUDA, Ollama, browser, live status, RAM and disk |
@@ -97,7 +98,7 @@ Runtime folders `rec/`, `clips/`, `queue/`, `logs/` and `shots/` are git-ignored
 - [x] **M1 · Safe autopilot:** SQLite, safety gate, Discord approval bot, 2-channel priority scheduler, RAM guard, NVENC, vault + CLAUDE.md
 - [x] **M2 · Reach:** Instagram Reels, thumbnail/cover maker, stats and earnings tracker
 - [x] **M3 · Smart picks:** trend scout, local-LLM → Gemini → Claude router, AI hooks + 4-question scoring, Claude second opinion on borderline clips
-- [ ] **M4 · Terminal app:** Textual dashboard with a Claude Agent SDK panel
+- [x] **M4 · Terminal app:** Textual dashboard with a Claude Agent SDK panel (`./tui.sh`)
 
 ## Responsible use
 

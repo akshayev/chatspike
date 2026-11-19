@@ -16,6 +16,7 @@ Live-stream auto-clipper for the GTA 6 launch. It records Twitch and YouTube str
 - `vault/`: Obsidian vault with campaigns, decisions, runbooks, playbook and learnings
 - `config.json`: channels in priority order, with thresholds and limits
 - `clipper/ai.py`: AI router (local Ollama → Gemini free → Claude). **Claude is only used for borderline-clip verdicts and the trend playbook**, capped by `ai.claude_daily_calls`. Check usage with `run.py --ai-usage`.
+- `tui/`: terminal dashboard (`./tui.sh`) + Claude operator agent (`tui/agent.py`, Agent SDK in-process tools; state changes ask the user). Talks to the running clipper via `logs/status.json` (heartbeat) and `data/control.json` (paused channels).
 - `clipper/trends.py`: trend scout → `vault/playbook/current.json` (read by `hook.py` when writing hooks)
 
 ## Commands
