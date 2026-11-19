@@ -18,3 +18,5 @@
 | capture health > 1.0 (e.g. 1.61) and `could not find sync byte` | detached recorder pipelines survived Ctrl+C, so two recorders wrote into one folder | pid files in logs/rec-*.pid; `recorder.kill_orphans()` at startup; scheduler.stop_all() on Ctrl+C / exit |
 | Instagram: `element is not visible` at Share | hidden duplicate "Share" elements on the page | click the first VISIBLE match (same for Next) |
 | Reel submit: "You don't have a linked Instagram account" | Instagram not linked in Content Rewards → Settings → Accounts | link it once; resubmit with `run.py --ig-submit ID` within 30 min of posting |
+| trends: `reddit failed: HTTP Error 403: Blocked` | Reddit blocks scripted JSON requests | fall back to the public RSS feed |
+| playbook suggests "trailer", "pre order", "review" terms | small local model drifts to off-topic search terms | `trends.sanitize()` drops off-topic terms (misleading titles get Reach rejections) and shortens hooks |

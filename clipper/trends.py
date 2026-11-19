@@ -35,13 +35,52 @@ def youtube_suggest():
 
 
 def reddit_hot():
+    """Reddit blocks scripted JSON requests (403); its public RSS feed is the polite fallback."""
     try:
         d = _get("https://www.reddit.com/r/GTA6/hot.json?limit=40")
         return [{"title": p["data"]["title"], "score": p["data"]["score"], "comments": p["data"]["num_comments"]}
                 for p in d["data"]["children"] if not p["data"].get("stickied")]
     except Exception as e:
-        L.info("reddit failed: %s", e)
+        L.info("reddit json failed (%s) - trying RSS", e)
+    try:
+        import xml.etree.ElementTree as ET
+        req = urllib.request.Request("https://www.reddit.com/r/GTA6/hot/.rss?limit=40", headers={
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) chatspike-trend-scout/1.0"})
+        root = ET.fromstring(urllib.request.urlopen(req, timeout=20).read())
+        ns = {"a": "http://www.w3.org/2005/Atom"}
+        return [{"title": e.findtext("a:title", "", ns)} for e in root.findall("a:entry", ns)][:40]
+    except Exception as e:
+        L.info("reddit rss failed: %s", e)
         return []
+
+
+# Terms that would make a gameplay-clip title misleading (Reach rejects misleading titles)
+OFF_TOPIC = ("trailer", "pre order", "preorder", "pre-order", "release date", "price", "leak", "download",
+             "free", "review", "map size", "pc port", "delay", "countdown", "announcement", "news")
+
+
+def sanitize(pb):
+    """Keep the playbook honest and usable: clip-relevant terms only, short punchy hooks."""
+    import re
+    keep = lambda t: isinstance(t, str) and not any(w in t.lower() for w in OFF_TOPIC)
+    pb["hot_terms"] = [t for t in pb.get("hot_terms", []) if keep(t)][:15]
+    pb["title_patterns"] = [t for t in pb.get("title_patterns", []) if keep(t) and "{N}" in t][:6]
+    hooks = []
+    for h in pb.get("hook_angles", []):
+        if not keep(h):
+            continue
+        h = re.sub(r"^(watch as|don't miss|check out|you won't believe)\s+", "", h.strip(), flags=re.I)
+        h = re.sub(r"[!.]+$", "", h).strip()
+        if len(h.split()) <= 7:
+            hooks.append(h.upper())
+    pb["hook_angles"] = hooks[:6]
+    pb["moments_to_favor"] = [m for m in pb.get("moments_to_favor", []) if keep(m)][:6]
+    avoid = pb.get("avoid", [])
+    for must in ("titles about trailers, pre-orders or news on gameplay clips", "exclamation-mark clickbait"):
+        if must not in avoid:
+            avoid.append(must)
+    pb["avoid"] = avoid[:10]
+    return pb
 
 
 def google_trends():
@@ -98,6 +137,8 @@ Google Trends rising (US, 24h): {json.dumps(signals['google_trends'])[:1200]}
 Top GTA 6 Twitch streams: {json.dumps(signals['twitch_top'][:15])[:1200]}
 Our recent clips by views: {json.dumps(top_clips[:15])[:1500]}
 
+The game is out and these are LIVE GAMEPLAY clips: never suggest trailer, pre-order, price, release, leak or news angles.
+Hooks are on-screen text: max 7 words, punchy, no "Watch as", no exclamation marks.
 Return JSON only:
 {{"hot_terms": [10-15 short phrases people search right now that a clip title could honestly use],
   "title_patterns": [3-6 title templates with {{N}} for the streamer, e.g. "{{N}} vs the Vice City cops"],
@@ -109,6 +150,7 @@ Return JSON only:
     pb, tier = ai.ask_json(prompt, "playbook", tiers=tiers, cfg=cfg)
     if not pb:
         return None
+    pb = sanitize(pb)
     pb["written_by"], pb["t"] = tier, time.time()
     PB_DIR.mkdir(parents=True, exist_ok=True)
     (PB_DIR / "current.json").write_text(json.dumps(pb, indent=2, ensure_ascii=False))
