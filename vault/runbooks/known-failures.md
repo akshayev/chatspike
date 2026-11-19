@@ -24,3 +24,4 @@
 | `No module named 'mcp.server.fastmcp'` | mcp 2.x renamed FastMCP to MCPServer (`mcp.server.mcpserver`) | `tui/mcp_server.py` imports MCPServer, falls back to FastMCP on 1.x |
 | agent: "Authentication error" / "not logged in" | the claude CLI has no login on this machine | run `claude` once in a terminal and sign in |
 | "Ignoring N permissions.allow entries … not been trusted" | folder not trusted by Claude Code yet | run `claude` here once and accept the trust dialog |
+| `CUDA failed with error no CUDA-capable device is detected` (nvidia-smi still works) | NVIDIA unified-memory module lost after laptop suspend | `sudo rmmod nvidia_uvm && sudo modprobe nvidia_uvm` (or reboot), then `bash check.sh` |
