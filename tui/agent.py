@@ -54,7 +54,7 @@ class Agent:
                "--strict-mcp-config", "--mcp-config", mcp_config(),
                "--allowedTools", ",".join(f"mcp__chatspike__{t}" for t in TOOLS),
                "--permission-mode", "dontAsk",                 # anything not allowed is denied, never prompts
-               "--append-system-prompt", SYSTEM, "--max-turns", "12"]
+               "--system-prompt", SYSTEM,                      # replaces the ~47k-token coding prompt "--max-turns", "12"]
         if self.session:
             cmd += ["--resume", self.session]
         return cmd

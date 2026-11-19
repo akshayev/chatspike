@@ -89,7 +89,9 @@ def _claude_cli(prompt, a):
         raise RuntimeError("no ANTHROPIC_API_KEY and no claude CLI")
     model = a.get("claude_cli_model", "haiku")
     r = subprocess.run([exe, "-p", prompt + "\n\nReply with JSON only.", "--output-format", "json", "--model", model,
-                        "--tools", "", "--strict-mcp-config", "--max-turns", "1", "--no-session-persistence"],
+                        "--tools", "", "--strict-mcp-config", "--max-turns", "1", "--no-session-persistence",
+                        # replace Claude Code's big default system prompt (~47k tokens) with a tiny one
+                        "--system-prompt", "You are a careful JSON-only assistant. Reply with one JSON object."],
                        capture_output=True, text=True, timeout=a.get("claude_cli_timeout", 120), cwd="/tmp",
                        env=cli_env())
     try:
