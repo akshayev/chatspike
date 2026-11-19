@@ -188,6 +188,29 @@
         "min_views": 1950,
         "max": 250
       }
+    },
+    {
+      "key": "rage",
+      "enabled": true,
+      "platform": "twitch",
+      "source": "yourragegaming",
+      "name": "YourRAGE",
+      "campaign_id": "be9b123e-ea47-4305-b6c5-af81f503b247",
+      "hashtags": [
+        "#yourrage",
+        "#GTA6",
+        "#GTAVI",
+        "#shorts"
+      ],
+      "cta": "Watch YourRAGE live on Twitch",
+      "min_msgs": 40,
+      "required_tags": [
+        "#yourrage"
+      ],
+      "payout": {
+        "type": "pool",
+        "min_views": 500000
+      }
     }
   ],
   "detect": {
