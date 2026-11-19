@@ -40,11 +40,19 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
     await page.waitForTimeout(3000);
 
     let method;
+    const sheet = page.locator('.clip-picker-root').first();
+    await sheet.waitFor({ timeout: 20000 });
     if (found) {
       method = 'list';
-      const tile = page.locator(`img[src*="${item.video_id}"]`).first();
-      if (await tile.count()) await tile.click();
-      else await page.getByText(item.title.slice(0, 30), { exact: false }).first().click({ timeout: 15000 });
+      // Tiles are toggle buttons and the newest one is often PRE-selected: only click if not selected.
+      let tile = sheet.locator('button', { has: page.locator(`img[src*="${item.video_id}"]`) }).first();
+      if (!(await tile.count())) tile = sheet.locator('button', { hasText: item.title.slice(0, 25) }).first();
+      const sel = async () => ['true'].includes(await tile.getAttribute('aria-pressed')) ||
+                              ['true'].includes(await tile.getAttribute('aria-checked')) ||
+                              ['true'].includes(await tile.getAttribute('aria-selected'));
+      if (!(await sel())) await tile.click();
+      await page.waitForTimeout(500);
+      if (!(await sel())) throw new Error('could not select the clip tile');
     } else {
       method = 'link';
       const box = page.getByPlaceholder(/paste a link/i).first();
@@ -58,24 +66,25 @@ const shot = (p, n) => p.screenshot({ path: path.join(__dirname, '..', 'shots', 
         return;
       }
     }
+
+    // 3) Accept requirements: a hidden checkbox inside a label - set it and verify
+    const req = sheet.locator('label', { hasText: "I've read the requirements" }).locator('input[type=checkbox]');
+    await req.check({ force: true });
+    if (!(await req.isChecked())) throw new Error('requirements checkbox did not tick');
     await shot(page, 1);
 
-    // 3) Accept requirements and submit
-    await page.getByText("I've read the requirements", { exact: false }).click();
-    await page.waitForTimeout(500);
-    const submit = page.locator('button:visible', { hasText: /^Submit clip/ }).last();
-    await submit.click();
-    await page.waitForTimeout(5000);
+    // 4) Submit and confirm the sheet closes (or CR says it is already in)
+    await sheet.locator('button', { hasText: /^Submit clip/ }).last().click();
+    let done = false, already = false;
+    for (let i = 0; i < 20 && !done; i++) {
+      await page.waitForTimeout(500);
+      const txt = await page.evaluate(() => document.body.innerText);
+      already = /already submitted to this campaign/i.test(txt);
+      done = already || !(await page.locator('.clip-picker-root').count());
+    }
     await shot(page, 2);
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    if (/already submitted to this campaign/i.test(bodyText)) {
-      console.log(JSON.stringify({ ok: true, method, already: true, campaign: item.campaign_id, video: item.video_id }));
-      return;
-    }
-    if (/error|invalid|already submitted|not allowed/i.test(bodyText.slice(0, 3000)) && /submit clip/i.test(bodyText)) {
-      throw new Error('Content Rewards showed an error after submit; see shots/cr-' + item.id + '-2.png');
-    }
-    console.log(JSON.stringify({ ok: true, method, campaign: item.campaign_id, video: item.video_id }));
+    if (!done) throw new Error('submit sheet stayed open; see shots/cr-' + item.id + '-2.png');
+    console.log(JSON.stringify({ ok: true, method, already, campaign: item.campaign_id, video: item.video_id }));
   } catch (e) {
     await shot(page, 'error');
     console.log(JSON.stringify({ ok: false, error: e.message }));
