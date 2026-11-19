@@ -60,6 +60,11 @@ def check(item, ch, cfg):
         soft.append("negative/drama wording in speech or chat")
     if item.get("needs_context"):
         soft.append("AI reviewer says it needs context")
+    from .trends import UNSAFE, OFF_TOPIC
+    text = f"{item.get('hook', '')} {item.get('title', '')}".lower()
+    bad = [w for w in UNSAFE + OFF_TOPIC if w in text]
+    if bad:
+        soft.append(f"AI-written hook/title uses risky wording: {', '.join(bad[:3])}")
 
     score = item.get("score", 0)
     if hard:
