@@ -11,6 +11,7 @@
   python3 run.py --publish ID     upload + submit one clip now (ignores the gate and rate limits)
   python3 run.py --submit ID      submit an already-uploaded clip to Content Rewards
   python3 run.py --ig ID [--dry]  post one clip as an Instagram Reel (--dry stops before Share)
+  python3 run.py --ig-submit ID   submit an already-posted Reel to its campaign
   python3 run.py --mark ID STATUS fix a record by hand (e.g. submitted after a manual submit)
 """
 import queue, sys, threading, time
@@ -68,6 +69,14 @@ def main():
         cid, new = args[i + 1], args[i + 2]
         db.update_clip(cid, status=new)
         print(f"{cid}: status -> {new}")
+        return
+    if "--ig-submit" in args:   # resubmit an already-posted Reel to its campaign
+        cid = arg_after(args, "--ig-submit")
+        yt = pipeline.Publisher(cfg)
+        if not yt.browser_ready():
+            sys.exit("clipper browser is not running")
+        pipeline.InstagramPublisher(cfg, yt).submit(cid)
+        print((db.get_clip(cid).get("ig") or {}).get("submit"))
         return
     if "--ig" in args:   # --ig ID [--dry]: post one clip as a Reel (dry = stop before Share)
         cid = arg_after(args, "--ig")
