@@ -153,6 +153,10 @@ class Publisher(threading.Thread):
 
     def submit(self, item):
         cid = item["id"]
+        if not self.browser_ready():
+            L.error("not submitting %s: clipper browser is not running", cid)
+            db.update_clip(cid, status="submit_failed", submit_result="clipper browser not running")
+            return
         L.info("SUBMITTING %s to campaign %s", cid, item["campaign_id"])
         r = subprocess.run(["node", str(ROOT / "browser" / "submit_cr.js"), str(self._handoff(item))],
                            capture_output=True, text=True, timeout=1800)
@@ -160,7 +164,8 @@ class Publisher(threading.Thread):
         ok = bool(out.get("ok"))
         db.update_clip(cid, status="submitted" if ok else "submit_failed",
                        submit_result=out or (r.stderr or "")[-1500:])
-        L.info("SUBMIT %s -> %s %s", cid, "submitted" if ok else "submit_failed", "" if ok else str(out)[:300])
+        L.info("SUBMIT %s -> %s %s", cid, "submitted" if ok else "submit_failed",
+               "" if ok else (str(out)[:300] if out else (r.stderr or r.stdout)[-400:]))
         if not ok:
             notify.alert(f"Content Rewards submit FAILED for {cid} - submit by hand within 30 min:\n"
                          f"{item.get('url')}\n{out.get('error', '')}")
