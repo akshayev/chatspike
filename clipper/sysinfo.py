@@ -33,8 +33,13 @@ def nvenc_ok():
 def video_args(quality="final", cfg=None):
     """Encoder args. quality='cut' = high quality intermediate, 'final' = upload file."""
     use_gpu = (cfg or {}).get("edit", {}).get("encoder", "auto") != "cpu" and nvenc_ok()
+    # Bitrate caps keep a 60 s Short under ~45 MB: the uploader can only hand files
+    # under 50 MB to the browser over CDP. 8 Mb/s is plenty for 1080x1920 @ 30 fps.
     if use_gpu:
-        cq = "19" if quality == "cut" else "23"
-        return ["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", cq, "-b:v", "0"]
-    crf = "18" if quality == "cut" else "20"
-    return ["-c:v", "libx264", "-preset", "veryfast", "-crf", crf]
+        if quality == "cut":
+            return ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "19", "-b:v", "12M", "-maxrate", "16M", "-bufsize", "24M"]
+        return ["-c:v", "h264_nvenc", "-preset", "p5", "-tune", "hq", "-rc", "vbr", "-cq", "23",
+                "-b:v", "6M", "-maxrate", "8M", "-bufsize", "12M"]
+    if quality == "cut":
+        return ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-maxrate", "16M", "-bufsize", "24M"]
+    return ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-maxrate", "8M", "-bufsize", "12M"]

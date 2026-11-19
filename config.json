@@ -142,7 +142,7 @@
     "visibility": "PUBLIC",
     "cdp_url": "http://127.0.0.1:9222",
     "instagram": {
-      "enabled": false,
+      "enabled": true,
       "max_per_day": 4,
       "min_gap_minutes": 90,
       "_note": "Set enabled=true after a successful --ig ID --dry run. Raise limits slowly as the account warms up."

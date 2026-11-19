@@ -14,3 +14,4 @@
 | `FileNotFoundError: 'streamlink'` | ran `.venv/bin/python` without activating the venv | recorder resolves streamlink next to sys.executable |
 | submit says failed but CR shows "Clip submitted" | success screen keeps the picker element in the DOM | detect "Clip submitted" text |
 | clip deselected in CR picker | newest upload is PRE-selected (aria-pressed=true); clicking toggles it off | only click when not selected; tick the hidden checkbox with check() |
+| `Cannot transfer files larger than 50Mb to a browser not co-located with the server` | NVENC final encode had no bitrate cap (-b:v 0) so clips exceeded 50 MB | final encode capped at 6M/8M max; `Publisher.fit_size` re-encodes anything over 45 MB before upload |

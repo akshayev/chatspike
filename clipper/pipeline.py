@@ -122,6 +122,23 @@ class Publisher(threading.Thread):
             self._browser_alerted = True
         return False
 
+    MAX_UPLOAD = 45 * 1024 * 1024   # Playwright can't pass >50 MB files to a CDP-attached browser
+
+    def fit_size(self, item):
+        """Re-encode a clip that is too big to hand to the browser (keeps 1080x1920)."""
+        from pathlib import Path
+        f = Path(item["file"])
+        if not f.exists() or f.stat().st_size <= self.MAX_UPLOAD:
+            return item
+        dur = max(1.0, float(item.get("duration") or editor.probe_duration(f)))
+        kbps = int((40 * 8 * 1024) / dur) - 160          # target ~40 MB including 160 kb/s audio
+        small = f.with_name(f.stem + "_fit.mp4")
+        L.warning("%s is %.0f MB - re-encoding to fit (%d kb/s)", item["id"], f.stat().st_size / 2**20, kbps)
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(f), "-c:v", "libx264",
+                        "-preset", "veryfast", "-b:v", f"{kbps}k", "-maxrate", f"{int(kbps * 1.3)}k",
+                        "-bufsize", f"{kbps * 2}k", "-c:a", "copy", "-movflags", "+faststart", str(small)], check=True)
+        return db.update_clip(item["id"], file=str(small))
+
     def _handoff(self, item):
         path = QUEUE_DIR / f"{item['id']}.json"
         write_json(path, item)
@@ -133,6 +150,7 @@ class Publisher(threading.Thread):
             L.error("not uploading %s: clipper browser is not running", cid)
             return
         L.info("UPLOADING %s (score %s)", cid, item.get("score"))
+        item = self.fit_size(item)
         item = db.update_clip(cid, status="uploading")
         r = subprocess.run(["node", str(ROOT / "browser" / "upload_youtube.js"), str(self._handoff(item))],
                            capture_output=True, text=True, timeout=900)
@@ -217,6 +235,7 @@ class InstagramPublisher(threading.Thread):
 
     def post(self, item, dry=False):
         cid = item["id"]
+        item = self.yt.fit_size(item)
         try:
             item["cover"] = thumbs.cover(item)
         except Exception as e:
