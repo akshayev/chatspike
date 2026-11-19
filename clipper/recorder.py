@@ -1,7 +1,7 @@
 """Records a live stream into a rolling buffer of short .ts segments named by
 wall-clock epoch, so any time window can be cut later without waiting for the
 stream to end. Old segments are deleted after `keep_minutes`."""
-import subprocess, threading, time, json, shutil, sys
+import subprocess, threading, time, json, shutil, sys, os, signal, shlex
 from pathlib import Path
 from .common import log, ROOT
 from .sysinfo import video_args
@@ -53,29 +53,45 @@ class Recorder:
                   "-f", "segment", "-segment_time", "4", "-reset_timestamps", "1",
                   "-strftime", "1", str(self.dir / "%s.ts")]
         L.info("recording %s -> %s", url, self.dir)
-        self.sl = subprocess.Popen(sl_cmd[:1] + ["--loglevel", "warning"] + sl_cmd[1:], stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, text=False)
-        self.ff = subprocess.Popen(ff_cmd, stdin=self.sl.stdout)
-        self.sl.stdout.close()
+        # Run streamlink | ffmpeg as ONE detached shell pipeline in its own process group,
+        # with no pipes back into this Python process. When the app's threads (chat,
+        # detector) were busy, the old Python-held stderr pipe throttled streamlink and
+        # ~1/3 of the stream was lost (capture health 0.67 vs 1.00 detached).
+        self.logf = ROOT / "logs" / f"rec-{self.ch['key']}.log"
+        self._log_pos = self.logf.stat().st_size if self.logf.exists() else 0
+        sl = " ".join(shlex.quote(x) for x in sl_cmd[:1] + ["--loglevel", "warning"] + sl_cmd[1:])
+        ff = " ".join(shlex.quote(x) for x in ff_cmd)
+        lg = shlex.quote(str(self.logf))
+        self.proc = subprocess.Popen(["bash", "-c", f"{sl} 2>>{lg} | {ff} 2>>{lg}"],
+                                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, start_new_session=True)
+        self.sl = self.ff = self.proc   # kept for older callers
         self.running = True
         threading.Thread(target=self._janitor, daemon=True).start()
-        threading.Thread(target=self._sl_log, daemon=True).start()
 
-    def _sl_log(self):
-        """Surface streamlink warnings (skipped segments, reconnects) in our log."""
-        for raw in iter(self.sl.stderr.readline, b""):
-            line = raw.decode("utf-8", "ignore").strip()
-            if line:
-                L.warning("[%s] streamlink: %s", self.ch["key"], line[:300])
+    def _surface_log(self):
+        """Copy new streamlink/ffmpeg warnings from the recorder log into our log."""
+        try:
+            with open(self.logf, "rb") as f:
+                f.seek(self._log_pos)
+                chunk = f.read(20000)
+                self._log_pos += len(chunk)
+            for line in chunk.decode("utf-8", "ignore").splitlines()[-10:]:
+                if line.strip() and "co located POCs" not in line:
+                    L.warning("[%s] recorder: %s", self.ch["key"], line.strip()[:300])
+        except OSError:
+            pass
 
     def alive(self):
-        return self.running and self.ff and self.ff.poll() is None and self.sl.poll() is None
+        return self.running and self.proc.poll() is None
 
     def stop(self):
         self.running = False
-        for p in (self.sl, self.ff):
-            if p and p.poll() is None:
-                p.terminate()
+        if getattr(self, "proc", None) and self.proc.poll() is None:
+            try:
+                os.killpg(self.proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
 
     def _media_len(self, f):
         try:
@@ -100,6 +116,7 @@ class Recorder:
         while self.running:
             if time.time() - last_health > 120:
                 last_health = time.time()
+                self._surface_log()
                 h = self.health()
                 if h is not None:
                     (L.warning if h < 0.9 else L.info)("[%s] capture health %.2f (media/wall, 1.00 = no drops)", self.ch["key"], h)
