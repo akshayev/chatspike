@@ -1,12 +1,16 @@
 """Records a live stream into a rolling buffer of short .ts segments named by
 wall-clock epoch, so any time window can be cut later without waiting for the
 stream to end. Old segments are deleted after `keep_minutes`."""
-import subprocess, threading, time, json
+import subprocess, threading, time, json, shutil, sys
 from pathlib import Path
 from .common import log, ROOT
 from .sysinfo import video_args
 
 L = log("rec")
+
+# streamlink lives in the same venv as this Python; don't rely on PATH being activated
+_venv_bin = Path(sys.executable).parent / "streamlink"
+STREAMLINK = str(_venv_bin) if _venv_bin.exists() else (shutil.which("streamlink") or "streamlink")
 
 
 def stream_url(ch):
@@ -19,7 +23,7 @@ def is_live(ch):
     """Ask streamlink whether the channel has a playable stream right now."""
     try:
         out = subprocess.run(
-            ["streamlink", "--json", stream_url(ch)],
+            [STREAMLINK, "--json", stream_url(ch)],
             capture_output=True, text=True, timeout=60,
         ).stdout
         data = json.loads(out or "{}")
@@ -42,7 +46,7 @@ class Recorder:
         url = stream_url(self.ch)
         # Same invocation that measured 0.99 capture health in diag_capture.sh.
         # (--stream-segment-threads 2 dropped ~1/3 of Twitch segments; --twitch-disable-ads is a no-op now.)
-        sl_cmd = ["streamlink", "--stdout", "--retry-open", "3",
+        sl_cmd = [STREAMLINK, "--stdout", "--retry-open", "3",
                   url, self.ch.get("quality", "1080p60,1080p,best")]
         ff_cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", "pipe:0",
                   "-c", "copy", "-map", "0:v:0", "-map", "0:a:0?",
